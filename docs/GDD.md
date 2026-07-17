@@ -163,9 +163,18 @@ cristallin (unique, surcadence ×1.8), Réacteur nucléaire (+40↯), Géoscanne
 - Audio 100 % WebAudio procédural (comme l'original) : nappe réactive
   profondeur/nuit/tempête, forage filtré, blips UI, boom, décollage.
 
-## 10. Hors périmètre v0.1 (roadmap)
+## 10. Intérieur de la fusée (v0.2)
 
-Intérieur de la fusée décorable (établi + vestiaire complet — le choix des
-couleurs reste disponible dans les Options), contrôles manette, mobile/tactile,
-console d'admin serveur, Steam Datagram Relay, succès Steam actifs (scaffold
-prêt), macOS signé/notarié. Voir `docs/ROADMAP.md`.
+Comme dans l'original, la fusée est **votre maison** : `E` devant la fusée
+ouvre une pièce 3D avec quatre postes — **sas** (ressortir), **vestiaire**
+(couleurs combinaison/visière/accents, visibles en coop), **établi de
+décoration** (les 8 objets de `G.DECOR`, coûts identiques, posés librement le
+long de la pièce, rangés pour 60 %, partagés en coop et sauvegardés) et
+**console de vol** (panneau fusée). Les détecteurs sont aussi de la partie :
+le **Géoscanner** surligne les filons à travers la roche autour de la foreuse
+et le **Labo** balise tous les cristaux du monde.
+
+## 11. Hors périmètre (roadmap)
+
+Contrôles manette, mobile/tactile, Steam Datagram Relay, succès Steam actifs
+(scaffold prêt), macOS signé/notarié. Voir `docs/ROADMAP.md`.

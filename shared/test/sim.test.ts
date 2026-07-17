@@ -74,6 +74,27 @@ describe("GameSim — intentions", () => {
     expect(sim.S.store.lingot_fer ?? 0).toBe(0);
   });
 
+  it("fabrique, pose et range des décorations (établi de la fusée)", () => {
+    const { sim, p } = makeSim();
+    sim.S.store.verre = 2;
+    sim.S.store.biogel = 2;
+    expect(sim.applyIntent(p, { i: "decoAdd", id: "plante", x: 0.4 })).toEqual({ deco: true });
+    expect(sim.S.decos.length).toBe(1);
+    expect(sim.S.store.verre ?? 0).toBe(1);
+    /* refus si fonds insuffisants */
+    sim.applyIntent(p, { i: "decoAdd", id: "trophee", x: 0.6 });
+    expect(sim.S.decos.length).toBe(1);
+    /* rangement : 60 % rendus */
+    sim.applyIntent(p, { i: "decoRemove", x: 0.4 });
+    expect(sim.S.decos.length).toBe(0);
+    expect(sim.S.store.verre).toBe(2); // ceil(1*0.6)=1 rendu
+    /* les décos voyagent dans le snapshot */
+    sim.applyIntent(p, { i: "decoAdd", id: "plante", x: 0.7 });
+    const snap = sim.serialize();
+    const restored = new GameSim(null, "normal", snap);
+    expect(restored.S.decos).toEqual([{ id: "plante", x: 0.7 }]);
+  });
+
   it("dépose dans le stock partagé en respectant la capacité", () => {
     const { sim, p } = makeSim();
     const ack = sim.applyIntent(p, { i: "deposit", items: { fer: 250, charbon: 100 } });

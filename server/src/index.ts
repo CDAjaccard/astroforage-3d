@@ -153,7 +153,91 @@ function serveStatic(req: http.IncomingMessage, res: http.ServerResponse): void 
   });
 }
 
+/* ---------------- console d'administration (optionnelle) ----------------
+ * Activée seulement si ADMIN_TOKEN est défini :
+ *   ADMIN_TOKEN=secret npm start   →  http://host:8080/admin?token=secret   */
+function adminApi(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  const urlPath = (req.url || "").split("?")[0];
+  if (urlPath !== "/admin" && urlPath !== "/admin/api") return false;
+  const ADMIN = process.env.ADMIN_TOKEN;
+  const deny = (code: number, msg: string): true => { res.writeHead(code); res.end(msg); return true; };
+  if (!ADMIN) return deny(404, "Console d'admin desactivee (definir ADMIN_TOKEN).");
+  const q = new URL(req.url || "/", "http://localhost").searchParams;
+  if (q.get("token") !== ADMIN) return deny(403, "Token invalide.");
+
+  if (urlPath === "/admin/api" && req.method === "POST") {
+    let body = "";
+    req.on("data", c => { body += c; });
+    req.on("end", () => {
+      try {
+        const m = JSON.parse(body || "{}");
+        const code = sanitizeRoom(m.code);
+        let out: any = { ok: false };
+        if (m.action === "kick") {
+          const room = rooms.get(code);
+          if (room) {
+            for (const [, p] of room.players) { send(p.ws, { t: "kicked" }); try { p.ws.close(); } catch { /* déjà fermée */ } }
+            out = { ok: true };
+          }
+        } else if (m.action === "delete") {
+          const room = rooms.get(code);
+          if (room) {
+            for (const [, p] of room.players) { send(p.ws, { t: "kicked" }); }
+            rooms.delete(code);
+            for (const [, p] of room.players) { try { p.ws.close(); } catch { /* rien */ } }
+          }
+          try { fs.unlinkSync(roomFile(code)); } catch { /* absent */ }
+          out = { ok: true };
+        } else if (m.action === "unlock") {
+          const room = rooms.get(code);
+          if (room) { room.passHash = null; saveRoom(room); out = { ok: true }; }
+          else {
+            const saved = loadRoomSave(code);
+            if (saved?.passHash) { delete saved.passHash; fs.writeFileSync(roomFile(code), JSON.stringify(saved)); out = { ok: true }; }
+          }
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(out));
+      } catch {
+        res.writeHead(400);
+        res.end("bad request");
+      }
+    });
+    return true;
+  }
+
+  /* page HTML */
+  const list: any[] = [];
+  const seen = new Set<string>();
+  for (const [code, room] of rooms) {
+    seen.add(code);
+    list.push({ code, active: true, players: room.players.size, act: room.sim.S.act, locked: !!room.passHash });
+  }
+  try {
+    for (const f of fs.readdirSync(DATA_DIR)) {
+      if (!f.endsWith(".json")) continue;
+      const code = f.replace(/\.json$/, "");
+      if (seen.has(code)) continue;
+      try {
+        const d = JSON.parse(fs.readFileSync(roomFile(code), "utf8"));
+        list.push({ code, active: false, players: 0, act: d.act || 1, locked: !!d.passHash });
+      } catch { /* illisible */ }
+    }
+  } catch { /* pas de data */ }
+  const rows = list.map(r => `<tr><td>${r.active ? "🟢" : "⚪"} <b>${r.code}</b>${r.locked ? " 🔒" : ""}</td><td>${r.players}/4</td><td>Acte ${r.act}</td>
+    <td><button onclick="act('kick','${r.code}')">Expulser</button>
+    <button onclick="act('unlock','${r.code}')">Déverrouiller</button>
+    <button onclick="if(confirm('Supprimer ${r.code} ?'))act('delete','${r.code}')">Supprimer</button></td></tr>`).join("");
+  res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+  res.end(`<!doctype html><meta charset="utf-8"><title>AF3D admin</title>
+<style>body{font-family:system-ui;background:#0b0e14;color:#dfe8ee;padding:24px}table{border-collapse:collapse}td{padding:6px 14px;border-bottom:1px solid #2b3444}button{margin-right:6px;cursor:pointer}h1{color:#7de0d8}</style>
+<h1>ASTRO·FORAGE 3D — salles (${list.length})</h1><table>${rows || "<tr><td>Aucune salle</td></tr>"}</table>
+<script>async function act(action,code){await fetch('/admin/api?token='+new URLSearchParams(location.search).get('token'),{method:'POST',body:JSON.stringify({action,code})});location.reload()}</script>`);
+  return true;
+}
+
 const server = http.createServer((req, res) => {
+  if (adminApi(req, res)) return;
   if (publicApi(req, res)) return;
   serveStatic(req, res);
 });
@@ -283,7 +367,8 @@ setInterval(() => {
           robotsOwned: S.robotsOwned, baieLvl: S.baieLvl, robotSpd: S.robotSpd,
           rocketFix: S.rocketFix, rocketDel: S.rocketDel, research: S.research,
           stats: S.stats, qi: S.qi, battE: S.battE, dayT: S.dayT,
-          power: sim.power, storm: !!S.storm, daylight: sim.daylight, debris: S.debris
+          power: sim.power, storm: !!S.storm, daylight: sim.daylight, debris: S.debris,
+          decos: S.decos
         }
       });
     }

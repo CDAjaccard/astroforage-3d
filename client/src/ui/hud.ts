@@ -32,6 +32,7 @@ export class Hud {
   private rowHp!: HTMLElement; private rowCargo!: HTMLElement;
   private heatEl!: HTMLElement;
   private depthEl!: HTMLElement;
+  private compassEl!: HTMLElement;
   private questTxt!: HTMLElement; private questTip!: HTMLElement; private questProg!: HTMLElement;
   private samBox!: HTMLElement; private samTxt!: HTMLElement;
   private toastBox!: HTMLElement;
@@ -84,6 +85,7 @@ export class Hud {
     this.heatEl.textContent = "🌡 " + t("heat");
 
     const br = el("div", "hud-br", this.root);
+    this.compassEl = el("div", "compass hidden", br);
     this.depthEl = el("div", "depth", br);
 
     const cc = el("div", "hud-cc", this.root);
@@ -116,6 +118,13 @@ export class Hud {
 
   hurtFlash(a: number): void {
     this.vignette.style.opacity = String(Math.min(0.85, a));
+  }
+
+  /** Boussole de retour : angle relatif à la visée, distance et symbole cible. */
+  setCompass(rel: number | null, dist: number, symbol: string): void {
+    this.compassEl.classList.toggle("hidden", rel === null);
+    if (rel === null) return;
+    this.compassEl.innerHTML = `${symbol} <span class="compass-arrow" style="transform:rotate(${Math.round((-rel * 180) / Math.PI) - 90}deg)">➤</span> ${Math.round(dist)} m`;
   }
 
   update(dt: number, S: SharedState, power: PowerInfo, daylight: number, st: HudState, questProg: string | null): void {

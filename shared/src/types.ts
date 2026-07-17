@@ -49,6 +49,9 @@ export interface Nest {
 
 export interface Debris { x: number; z: number; t: number; ti: number; fe: number }
 
+/** Décoration posée dans l'intérieur de la fusée (x le long de la pièce, 0..1). */
+export interface Deco { id: string; x: number }
+
 export interface Stats {
   mined: Record<string, number>;
   made: Record<string, number>;
@@ -94,6 +97,7 @@ export interface SharedState {
   deepest: number;
   mobWarn: Record<string, 1>;
   nestWarn: 0 | 1;
+  decos: Deco[];
 }
 
 /** Avatar (possédé par chaque client ; jamais simulé par le serveur). */
@@ -204,6 +208,7 @@ export interface Snapshot {
   deepest: number;
   mobWarn: Record<string, 1>;
   nestWarn: 0 | 1;
+  decos?: Deco[];
   /* méta hors-sim (facultatif) */
   passHash?: string;
 }

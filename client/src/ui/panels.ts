@@ -2,16 +2,20 @@
  * DOM pur, rafraîchi tant qu'ouvert. Les actions passent par la façade Game. */
 import {
   BUILDINGS, BUILD_ORDER, RECIPES, RESDEF, RESEARCH, UPGRADES, ROCKET, ROCKET2,
-  ROBOT_COST, BAIE_UP, SPD_UP, ROBOT_CAP, TIPS,
+  ROBOT_COST, BAIE_UP, SPD_UP, ROBOT_CAP, TIPS, DECOR, DECOR_ORDER, COSMETIC,
   type Building, type SharedState, type PlayerUp
 } from "@astroforage/shared";
 import { t, pick, getLang } from "./i18n.js";
+import { settings, saveSettings } from "../config.js";
 
 export interface PanelHost {
   S: SharedState;
   myUp: PlayerUp;
   intent(m: any): void;
   startPlacing(key: string): void;
+  startDecoPlacing(id: string): void;
+  applyCosmetics(): void;
+  rescueHome(): void;
   canAffordShared(cost: Record<string, number>): boolean;
   buildCost(key: string): Record<string, number>;
   builtCount(key: string): number;
@@ -73,6 +77,71 @@ export class Panels {
     else if (n === "fusee") this.renderRocket();
     else if (n === "stock") this.renderStock();
     else if (n === "aide") this.renderHelp();
+    else if (n === "vestiaire") this.renderVestiaire();
+    else if (n === "deco") this.renderDeco();
+  }
+
+  private renderVestiaire(): void {
+    const swatches = (kind: "suit" | "visor" | "accent", label: string): string =>
+      `<div class="sect">${label}</div><div class="swatches">` +
+      (COSMETIC[kind] as any[]).map((c, i) =>
+        `<button class="swatch ${settings.cosmetic[kind] === i ? "sel" : ""}" data-cos="${kind}:${i}" style="--c:${c.col}" title="${pick(c.nom, c.nomEn)}"></button>`).join("") +
+      `</div>`;
+    this.frame("🧑‍🚀 " + t("vestTitle"),
+      swatches("suit", t("suitCol")) + swatches("visor", t("visorCol")) + swatches("accent", t("accentCol")) +
+      `<div class="btnrow"><button class="pbtn" data-act="rand">🎲</button></div>`);
+    this.root.querySelectorAll("[data-cos]").forEach(el => el.addEventListener("click", () => {
+      const [kind, i] = (el as HTMLElement).dataset.cos!.split(":");
+      (settings.cosmetic as any)[kind] = Number(i);
+      saveSettings();
+      this.host.applyCosmetics();
+      this.host.blip();
+      this.renderVestiaire();
+    }));
+    this.root.querySelector("[data-act=rand]")?.addEventListener("click", () => {
+      settings.cosmetic = {
+        suit: (Math.random() * COSMETIC.suit.length) | 0,
+        visor: (Math.random() * COSMETIC.visor.length) | 0,
+        accent: (Math.random() * COSMETIC.accent.length) | 0
+      };
+      saveSettings();
+      this.host.applyCosmetics();
+      this.host.blip();
+      this.renderVestiaire();
+    });
+  }
+
+  private renderDeco(): void {
+    const S = this.host.S;
+    let body = "";
+    for (const id of DECOR_ORDER) {
+      const def = DECOR[id];
+      const afford = this.host.canAffordShared(def.cost);
+      body += `<div class="row">
+        <div class="row-b">
+          <div class="row-t">${pick(def.nom, def.nomEn)}</div>
+          <div class="row-d">${pick(def.desc, def.descEn)}</div>
+          <div class="row-c">${costHtml(def.cost, S)}</div>
+        </div>
+        <button class="pbtn go" data-deco="${id}" ${afford ? "" : "disabled"}>${t("decoCraft")}</button>
+      </div>`;
+    }
+    if (S.decos.length) {
+      body += `<div class="sect">${t("decoPlaced")} (${S.decos.length})</div>`;
+      for (const d of S.decos) {
+        const def = DECOR[d.id];
+        body += `<div class="row"><div class="row-b"><div class="row-t">${pick(def?.nom, def?.nomEn)}</div></div>
+          <button class="pbtn danger" data-rm="${d.x}">${t("decoRemove")}</button></div>`;
+      }
+    }
+    this.frame("🛠 " + t("decoTitle"), body);
+    this.root.querySelectorAll("[data-deco]").forEach(el => el.addEventListener("click", () => {
+      this.host.startDecoPlacing((el as HTMLElement).dataset.deco!);
+    }));
+    this.root.querySelectorAll("[data-rm]").forEach(el => el.addEventListener("click", () => {
+      this.host.intent({ i: "decoRemove", x: Number((el as HTMLElement).dataset.rm) });
+      this.host.blip();
+    }));
   }
 
   private frame(title: string, bodyHtml: string): void {
@@ -289,8 +358,15 @@ export class Panels {
 
   private renderHelp(): void {
     let body = `<div class="sect">${t("controlsTitle")}</div><div class="row-d">${t("helpControls")}</div>`;
+    body += `<div class="btnrow"><button class="pbtn danger" data-act="rescue">🛟 ${pick("Rapatrier à la base (cargaison perdue)", "Rescue to base (cargo lost)")}</button></div>`;
     body += `<div class="sect">${t("tipsTitle")}</div>`;
     for (const tip of TIPS) body += `<div class="tip">▸ ${pick(tip.fr, tip.en)}</div>`;
     this.frame("❓ " + t("help"), body);
+    this.root.querySelector("[data-act=rescue]")?.addEventListener("click", () => {
+      if (confirm(pick("Rapatriement d'urgence : la cargaison et la sacoche seront perdues. Continuer ?", "Emergency rescue: cargo and pouch will be lost. Continue?"))) {
+        this.host.rescueHome();
+        this.host.closePanel();
+      }
+    });
   }
 }

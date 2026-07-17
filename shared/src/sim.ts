@@ -13,7 +13,7 @@
 import {
   W, SURF, DAYLEN, DIFFS, type DiffKey, RESDEF, T, RECIPES, BUILDINGS, UPGRADES,
   DEPTHS, RESEARCH, ROCKET, ROCKET2, QUESTS, ACT2_QI, MOBS, ROBOT_COST, BAIE_UP,
-  SPD_UP, ROBOT_ITV, ROBOT_CAP, DEFAULT_UP, ROCK_POS, type UpKey
+  SPD_UP, ROBOT_ITV, ROBOT_CAP, DEFAULT_UP, ROCK_POS, DECOR, type UpKey
 } from "./data.js";
 import { randomSeed } from "./rng.js";
 import {
@@ -81,7 +81,7 @@ function initialState(seed: number, diff: DiffKey): SharedState {
     stats: { mined: {}, made: {}, robots: 0, rescues: 0 },
     battE: 0, launched: false, quakeT: 55, quakeSam: 0, storm: null,
     debris: [], creatures: [], projectiles: [], nests: gen.nests,
-    milestones: {}, deepest: 0, mobWarn: {}, nestWarn: 0
+    milestones: {}, deepest: 0, mobWarn: {}, nestWarn: 0, decos: []
   };
 }
 
@@ -374,6 +374,30 @@ export class GameSim {
       case "rescue": {
         S.stats.rescues++;
         return null;
+      }
+      case "decoAdd": {
+        const def = DECOR[String(m.id)];
+        if (!def) return null;
+        if (!this.canAfford(def.cost)) { this.toast("Ressources insuffisantes.", "warn", "Not enough resources."); return null; }
+        this.pay(def.cost);
+        S.decos.push({ id: String(m.id), x: Math.max(0.05, Math.min(0.95, +m.x || 0.5)) });
+        return { deco: true };
+      }
+      case "decoRemove": {
+        let bi = -1, bd = 0.08;
+        for (let i = 0; i < S.decos.length; i++) {
+          const d = Math.abs(S.decos[i].x - (+m.x || 0));
+          if (d < bd) { bd = d; bi = i; }
+        }
+        if (bi < 0) return null;
+        const def = DECOR[S.decos[bi].id];
+        if (def) for (const r in def.cost) {
+          const n = Math.ceil(def.cost[r] * 0.6);
+          if (n > 0) this.gain(r, n);
+        }
+        S.decos.splice(bi, 1);
+        this.toast("Objet rangé — 60 % des matériaux récupérés.", "info", "Item stored — 60% of materials recovered.");
+        return { deco: true };
       }
     }
     return null;
@@ -1010,7 +1034,8 @@ export class GameSim {
       milestones: { ...S.milestones },
       deepest: S.deepest,
       mobWarn: { ...S.mobWarn },
-      nestWarn: S.nestWarn
+      nestWarn: S.nestWarn,
+      decos: S.decos.map(d => ({ ...d }))
     };
   }
   fullSnapshot(): Snapshot { return this.serialize(); }
@@ -1049,6 +1074,7 @@ export class GameSim {
     S.deepest = snap.deepest ?? 0;
     S.mobWarn = snap.mobWarn ?? {};
     S.nestWarn = snap.nestWarn ?? 0;
+    S.decos = snap.decos ?? [];
     return S;
   }
 }

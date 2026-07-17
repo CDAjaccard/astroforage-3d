@@ -289,6 +289,20 @@ export const COSMETIC = {
   ]
 };
 
+/* ---- décorations fabricables (établi de la fusée) ---- */
+export interface DecorDef { nom: string; nomEn: string; cost: Record<string, number>; desc: string; descEn: string }
+export const DECOR: Record<string, DecorDef> = {
+  plante: { nom: "Plante en pot", nomEn: "Potted plant", cost: { verre: 1, biogel: 1 }, desc: "Un peu de verdure alien pour respirer.", descEn: "A bit of alien greenery to breathe." },
+  lampe: { nom: "Lampadaire", nomEn: "Floor lamp", cost: { lingot_cuivre: 2, verre: 1 }, desc: "Une lumière chaude et accueillante.", descEn: "A warm, welcoming light." },
+  tapis: { nom: "Tapis tissé", nomEn: "Woven rug", cost: { biogel: 2 }, desc: "Un tapis moelleux qui réchauffe le sol.", descEn: "A soft rug that warms the floor." },
+  statue: { nom: "Statue de cristal", nomEn: "Crystal statue", cost: { cristal: 2 }, desc: "Une sculpture qui capte et diffuse la lumière.", descEn: "A sculpture that catches and scatters light." },
+  banniere: { nom: "Bannière de mission", nomEn: "Mission banner", cost: { cable: 2, plaque: 1 }, desc: "Fièrement aux couleurs de la mission.", descEn: "Proudly in the mission's colors." },
+  robot: { nom: "Petit robot", nomEn: "Little robot", cost: { acier: 2, circuit: 1 }, desc: "Un compagnon mécanique qui flotte près de vous.", descEn: "A mechanical companion floating nearby." },
+  baril: { nom: "Baril lumineux", nomEn: "Glowing barrel", cost: { plaque: 1, uranium: 1 }, desc: "Un fût scellé qui diffuse une lueur verte.", descEn: "A sealed drum shedding a green glow." },
+  trophee: { nom: "Trophée de foreur", nomEn: "Driller trophy", cost: { lingot_titane: 2 }, desc: "Pour célébrer vos exploits sous la surface.", descEn: "To celebrate your feats below the surface." }
+};
+export const DECOR_ORDER = ["plante", "lampe", "tapis", "statue", "banniere", "robot", "baril", "trophee"];
+
 /* ---- Astuces (panneau Aide) ---- */
 export const TIPS: Array<{ fr: string; en: string }> = [
   { fr: "Posez-vous en surface : déchargement, recharge et réparations sont automatiques.", en: "Land at the surface: unloading, recharging and repairs are automatic." },

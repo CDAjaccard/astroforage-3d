@@ -138,7 +138,8 @@ export class NetSim implements SimPort {
             store: b.store, builds: b.builds, robots: b.robots,
             robotsOwned: b.robotsOwned, baieLvl: b.baieLvl, robotSpd: b.robotSpd,
             rocketFix: b.rocketFix, rocketDel: b.rocketDel, research: b.research,
-            stats: b.stats, battE: b.battE, dayT: b.dayT, debris: b.debris
+            stats: b.stats, battE: b.battE, dayT: b.dayT, debris: b.debris,
+            decos: b.decos ?? this.S.decos
           });
           if (b.qi !== this.S.qi) this.S.qi = b.qi;
           this.S.storm = b.storm ? (this.S.storm ?? { t: 0, dur: 20 }) : null;

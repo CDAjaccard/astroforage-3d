@@ -4,7 +4,7 @@
 import * as THREE from "three";
 import {
   W, SURF, O2MAX, POUCH, DAYLEN, BEAM_COST, BEAM_CD, QUESTS, FEATS, BUILDINGS,
-  RESDEF, T as TILES, DIFFS, ROCK_POS, SPAWN_DRILL, SPAWN_ASTRO,
+  RESDEF, T as TILES, DIFFS, ROCK_POS, SPAWN_DRILL, SPAWN_ASTRO, DECOR,
   tile, isPassableId, rowOfY, topYOfRow, canPlaceBuilding,
   type DiffKey, type GameEvent, type Snapshot, type WirePlayer, SEND_HZ
 } from "@astroforage/shared";
@@ -21,6 +21,8 @@ import { au } from "../audio/engine.js";
 import { settings, saveSettings } from "../config.js";
 import { LocalSim, NetSim, foretStats, upVal, dayPhase, type SimPort } from "./simPort.js";
 import { moveAABB, touchesLava, raycastVoxel } from "./physics.js";
+import { Interior, ROOM, makeDecoMesh } from "./interior.js";
+import { Overlays } from "../render/overlays.js";
 import {
   newSlot, saveSlot, loadSlot, curSlotId, setCurSlot, loadFeats, saveFeats, saveBest,
   type SlotData
@@ -54,8 +56,13 @@ export class Game {
   world: VoxelWorld | null = null;
   sim: SimPort | null = null;
 
-  mode: "boot" | "menu" | "play" | "launch" | "win" = "boot";
+  mode: "boot" | "menu" | "play" | "interior" | "launch" | "win" = "boot";
   camMode: "fps" | "tps" = "fps";
+  interior = new Interior();
+  overlays!: Overlays;
+  placingDeco: string | null = null;
+  private decoGhost: THREE.Object3D | null = null;
+  private outsidePos: { x: number; y: number; z: number } | null = null;
 
   /* avatars (client-autoritatif, comme l'original) */
   astro = { x: 0, y: 2, z: 0, vx: 0, vy: 0, vz: 0, o2: O2MAX, jp: 90, pouch: 0, grounded: true, anim: 0, inDrill: false, o2Warn: false, jets: false };
@@ -93,6 +100,9 @@ export class Game {
   private hurtA = 0;
   private slotId: string | null = null;
   private uiLayer: HTMLDivElement;
+  private introT = 0;
+  private introBoomed = false;
+  private introFade!: HTMLDivElement;
 
   constructor(container: HTMLElement) {
     const canvas = document.createElement("canvas");
@@ -106,12 +116,20 @@ export class Game {
     this.input = new Input(canvas);
     this.hud = new Hud(container);
     this.fx = new Effects(this.scene.scene, this.uiLayer);
+    this.overlays = new Overlays(this.scene.scene);
+    this.introFade = document.createElement("div");
+    this.introFade.className = "introfade";
+    this.introFade.style.display = "none";
+    container.appendChild(this.introFade);
 
     const panelHost: PanelHost = {
       get S() { return game.sim!.S; },
       get myUp() { return game.sim!.myUp; },
       intent: (m) => this.sim?.intent(m),
       startPlacing: (key) => this.startPlacing(key),
+      startDecoPlacing: (id) => this.startDecoPlacing(id),
+      applyCosmetics: () => this.applySettings(),
+      rescueHome: () => this.rescue(getLang() === "en" ? "voluntary" : "volontaire"),
       canAffordShared: (cost) => {
         const S = this.sim?.S;
         if (!S) return false;
@@ -247,6 +265,11 @@ export class Game {
     if (!opts.slotId) {
       const q = QUESTS[0];
       this.hud.say(pick(q.sam, q.samEn), 14);
+      /* petite cinématique de crash : fondu au noir + impact */
+      this.introT = 3.4;
+      this.introBoomed = false;
+      this.introFade.style.display = "block";
+      this.introFade.style.opacity = "1";
     }
     this.saveNow();
   }
@@ -357,7 +380,9 @@ export class Game {
         break;
       case "escape":
         if (this.placing) { this.cancelPlacing(); return; }
+        if (this.placingDeco) { this.cancelDecoPlacing(); return; }
         if (this.panels.isOpen) { this.closePanel(); return; }
+        if (this.mode === "interior") { this.exitRocket(); return; }
         if (this.mode === "play") this.pauseGame();
         else if (this.menus.screen === "pause") this.resume();
         break;
@@ -425,7 +450,128 @@ export class Game {
     return { ox: b.x, oy, oz: b.z, dx: dir.x, dy: dir.y, dz: dir.z };
   }
 
+  /* ---- intérieur de la fusée ---- */
+  enterRocket(): void {
+    if (!this.sim || this.astro.inDrill) return;
+    const a = this.astro;
+    this.outsidePos = { x: a.x, y: a.y, z: a.z };
+    this.interior.build(this.scene.scene);
+    this.interior.px = 2;
+    this.interior.pz = ROOM.D * 0.55;
+    this.mode = "interior";
+    this.input.clear();
+    this.input.yaw = 0.25;      // face aux postes (mur du fond)
+    this.input.pitch = -0.04;
+    a.o2 = O2MAX;
+    if (!localStorage.getItem("af3d_seenRocket")) {
+      localStorage.setItem("af3d_seenRocket", "1");
+      this.hud.say(t("samWelcomeHome"), 14);
+    }
+    au.blip(520, 0.09, 0.09);
+  }
+  exitRocket(): void {
+    if (this.mode !== "interior") return;
+    this.cancelDecoPlacing();
+    this.panels.close();
+    const a = this.astro;
+    const rx = (ROCK_POS.x + 0.5) * VOX, rz = (ROCK_POS.z + 0.5) * VOX;
+    a.x = this.outsidePos?.x ?? rx + 4;
+    a.y = Math.max(this.outsidePos?.y ?? 1, 0.9);
+    a.z = this.outsidePos?.z ?? rz;
+    a.vx = a.vy = a.vz = 0;
+    a.jp = upVal(this.sim!.myUp, "jetpack") + (this.sim!.S.research.nitro ? 80 : 0);
+    this.mode = "play";
+    this.input.lock();
+    au.blip(380, 0.09, 0.09);
+    if (this.sim?.mode === "solo") this.saveNow();
+  }
+  startDecoPlacing(id: string): void {
+    this.placingDeco = id;
+    this.panels.close();
+    if (this.decoGhost) this.interior.group.remove(this.decoGhost);
+    this.decoGhost = makeDecoMesh(id);
+    this.decoGhost.traverse(o => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh) {
+        const mm = (m.material as THREE.MeshStandardMaterial).clone();
+        mm.transparent = true;
+        mm.opacity = 0.55;
+        m.material = mm;
+      }
+    });
+    this.interior.group.add(this.decoGhost);
+    this.input.lock();
+    this.hud.toast(t("decoPlaceHint"), "info");
+  }
+  cancelDecoPlacing(): void {
+    if (this.decoGhost) this.interior.group.remove(this.decoGhost);
+    this.decoGhost = null;
+    this.placingDeco = null;
+  }
+  /** x-pièce visé au sol (caméra intérieure) */
+  private interiorAimX(): number | null {
+    const cam = this.scene.camera;
+    const dir = new THREE.Vector3();
+    cam.getWorldDirection(dir);
+    if (dir.y > -0.08) return null;
+    const tPlane = (ROOM.y0 + 0.01 - cam.position.y) / dir.y;
+    if (tPlane < 0 || tPlane > 10) return null;
+    const lx = cam.position.x + dir.x * tPlane - ROOM.x0;
+    const lz = cam.position.z + dir.z * tPlane - ROOM.z0;
+    if (lz < 0.2 || lz > ROOM.D - 0.2) return null;
+    return Math.max(0.6, Math.min(ROOM.L - 0.6, lx));
+  }
+  private interiorInteract(): void {
+    if (this.placingDeco) { this.cancelDecoPlacing(); return; }
+    const st = this.interior.nearStation();
+    if (!st) return;
+    if (st.id === "hatch") this.exitRocket();
+    else if (st.id === "vestiaire") this.openPanel("vestiaire");
+    else if (st.id === "deco") this.openPanel("deco");
+    else if (st.id === "console") this.openPanel("fusee");
+  }
+  private updateInterior(dt: number): void {
+    const K = this.input.keys;
+    const yaw = this.input.yaw;
+    let ix = 0, iz = 0;
+    if (K.fwd) { ix -= Math.sin(yaw); iz -= Math.cos(yaw); }
+    if (K.back) { ix += Math.sin(yaw); iz += Math.cos(yaw); }
+    if (K.left) { ix -= Math.cos(yaw); iz += Math.sin(yaw); }
+    if (K.right) { ix += Math.cos(yaw); iz -= Math.sin(yaw); }
+    const il = Math.hypot(ix, iz);
+    if (il > 0) { ix /= il; iz /= il; }
+    this.interior.move(dt, ix, iz);
+    this.astro.o2 = O2MAX;
+    this.interior.syncDecos(this.sim!.S.decos, performance.now() / 1000);
+
+    /* placement de décoration */
+    if (this.placingDeco && this.decoGhost) {
+      const ax = this.interiorAimX();
+      this.decoGhost.visible = ax !== null;
+      if (ax !== null) {
+        this.decoGhost.position.set(ax, 0, this.placingDeco === "banniere" ? 0.35 : 1.7);
+        if (this.input.keys.mouseL) {
+          this.input.keys.mouseL = false;
+          this.sim!.intent({ i: "decoAdd", id: this.placingDeco, x: ax / ROOM.L });
+          au.build();
+          const def = DECOR[this.placingDeco];
+          const canAgain = def && Object.entries(def.cost).every(([r, n]) => (this.sim!.S.store[r] || 0) >= n);
+          if (!canAgain) this.cancelDecoPlacing();
+        }
+      }
+    } else if (this.input.keys.mouseL) {
+      /* clic sur une déco posée : la ranger */
+      this.input.keys.mouseL = false;
+      const ax = this.interiorAimX();
+      if (ax !== null) {
+        const nx = this.interior.nearDecoX(ax, this.sim!.S.decos);
+        if (nx !== null) { this.sim!.intent({ i: "decoRemove", x: nx }); au.thud(); }
+      }
+    }
+  }
+
   private doInteract(): void {
+    if (this.mode === "interior") { this.interiorInteract(); return; }
     if (this.mode !== "play" || !this.sim) return;
     if (this.placing) { this.cancelPlacing(); return; }
     const S = this.sim.S;
@@ -467,9 +613,9 @@ export class Game {
       setTimeout(() => au.thud(), 200);
       return;
     }
-    /* fusée ? */
+    /* fusée : on entre dans la base (vestiaire / établi / console) */
     const rx = (ROCK_POS.x + 0.5) * VOX, rz = (ROCK_POS.z + 0.5) * VOX;
-    if (!S.launched && Math.hypot(a.x - rx, a.z - rz) < 5.5 && a.y < 8) { this.openPanel("fusee"); return; }
+    if (!S.launched && Math.hypot(a.x - rx, a.z - rz) < 5.5 && a.y < 8) { this.enterRocket(); return; }
     /* robot proche ? */
     for (const r of S.robots) {
       const px = (r.x + 0.5) * VOX, pz = (r.z + 0.5) * VOX, py = topYOfRow(r.d);
@@ -750,6 +896,8 @@ export class Game {
         if (this.astro.inDrill) this.updateDrill(dt);
         else { this.updateAstro(dt); this.settleDrill(dt); }
         this.updatePlacing();
+      } else if (this.mode === "interior") {
+        this.updateInterior(dt);
       }
       sim.update(dt);
       if (this.mode === "launch") this.updateLaunchAnim(dt);
@@ -784,6 +932,13 @@ export class Game {
     const depth = Math.max(0, -b.y);
     const stormA = sim.S.storm ? 1 : 0;
     this.scene.updateEnv(sim.daylight, depth, stormA, performance.now() / 1000, dayPhase(sim.S.dayT));
+    if (this.mode === "interior") {
+      /* éclairage intérieur fixe : pas de lampe frontale ni de soleil */
+      this.scene.hemi.intensity = 0.85;
+      this.scene.sun.intensity = 0;
+      this.scene.lamp.intensity = 0;
+      this.scene.lampGlow.intensity = 0;
+    }
 
     /* ambiance sonore */
     this.moodT += dt;
@@ -1124,6 +1279,18 @@ export class Game {
   /* ---- caméra ---- */
   private updateCamera(dt: number): void {
     const cam = this.scene.camera;
+    if (this.mode === "interior") {
+      const p = this.interior.camPos();
+      const yaw = this.input.yaw, pitch = this.input.pitch;
+      cam.position.set(p.x, p.y, p.z);
+      cam.lookAt(
+        p.x - Math.sin(yaw) * Math.cos(pitch),
+        p.y + Math.sin(pitch),
+        p.z - Math.cos(yaw) * Math.cos(pitch)
+      );
+      this.myRig.group.visible = false;
+      return;
+    }
     if (this.mode === "launch") {
       const rx = (ROCK_POS.x + 0.5) * VOX, rz = (ROCK_POS.z + 0.5) * VOX;
       const ry = this.rocketMesh.position.y;
@@ -1291,6 +1458,23 @@ export class Game {
       if (spin) spin.rotation.y = time;
     }
 
+    /* surcouches scanner / labo */
+    this.overlays.update(
+      dt, S,
+      S.builds.some(b => b.key === "scanner"), !!S.research.optique,
+      S.builds.some(b => b.key === "labo"),
+      this.astro.inDrill, d.x, d.y, d.z,
+      this.specials.keys(), time
+    );
+
+    /* tempête : sable balayé en surface */
+    if (S.storm && this.mode === "play") {
+      const b = this.body();
+      if (b.y > -4 && Math.random() < dt * 26) {
+        this.fx.sand(b.x + (Math.random() - 0.5) * 30, 0.4 + Math.random() * 2.6, b.z + (Math.random() - 0.5) * 30);
+      }
+    }
+
     /* joueurs distants */
     for (const [, r] of this.remotes) {
       r.cur.lerp(r.target, Math.min(1, dt * 12));
@@ -1314,7 +1498,13 @@ export class Game {
     const a = this.astro, d = this.drill;
     const up = sim.myUp;
     let hint = "";
-    if (this.mode === "play" && !a.inDrill) {
+    if (this.mode === "interior") {
+      if (this.placingDeco) hint = t("decoPlaceHint");
+      else {
+        const st = this.interior.nearStation();
+        if (st) hint = t(("st" + st.id.charAt(0).toUpperCase() + st.id.slice(1)) as any);
+      }
+    } else if (this.mode === "play" && !a.inDrill) {
       const ray = this.camRay();
       const hit = raycastVoxel(S, ray.ox, ray.oy, ray.oz, ray.dx, ray.dy, ray.dz, REACH, true);
       if (hit?.id === 8) hint = t("harvest");
@@ -1353,6 +1543,40 @@ export class Game {
     this.hud.hurtFlash(this.hurtA);
     this.hurtA = Math.max(0, this.hurtA - dt * 1.2);
     this.hud.update(dt, S, sim.power, sim.daylight, hs, sim.questProg(S.qi));
+
+    /* boussole de retour (équivalent 3D de la minicarte) */
+    let rel: number | null = null, cDist = 0, cSym = "";
+    if (this.mode === "play") {
+      const bx = (SPAWN_DRILL.x + 0.5) * VOX, bz = (SPAWN_DRILL.z + 0.5) * VOX;
+      if (a.inDrill && -d.y > 12) {
+        rel = Math.atan2(-(bx - d.x), -(bz - d.z)) - this.input.yaw;
+        cDist = Math.hypot(bx - d.x, bz - d.z, d.y);
+        cSym = "⌂";
+      } else if (!a.inDrill) {
+        const dist2 = Math.hypot(d.x - a.x, d.z - a.z, d.y - a.y);
+        if (dist2 > 16) {
+          rel = Math.atan2(-(d.x - a.x), -(d.z - a.z)) - this.input.yaw;
+          cDist = dist2;
+          cSym = "⛏";
+        }
+      }
+    }
+    this.hud.setCompass(rel, cDist, cSym);
+
+    /* fondu d'intro (crash) */
+    if (this.introT > 0) {
+      this.introT -= dt;
+      if (!this.introBoomed && this.introT < 2.2) {
+        this.introBoomed = true;
+        const rx = (ROCK_POS.x + 0.5) * VOX, rz = (ROCK_POS.z + 0.5) * VOX;
+        this.fx.boom(rx, 3, rz);
+        au.boom();
+        au.thud();
+        this.scene.shake = 12;
+      }
+      this.introFade.style.opacity = String(Math.max(0, Math.min(1, this.introT / 2.6)));
+      if (this.introT <= 0) this.introFade.style.display = "none";
+    }
   }
 
   /* ---- décollage ---- */

@@ -230,6 +230,11 @@ button { font: inherit; cursor: pointer; }
 .feat small { font-size: 11.5px; color: #9fb4c0; }
 .win-card h1 { font-size: 34px; text-shadow: 0 0 30px rgba(255, 210, 62, 0.4); }
 .win-stats { color: var(--teal); }
+.bookrow { display: flex; gap: 6px; align-items: center; flex: 1; max-width: 300px; }
+.bookrow select { flex: 1; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.compass { font-size: 15px; color: var(--teal); text-shadow: 0 1px 6px #000; margin-bottom: 4px; }
+.compass-arrow { display: inline-block; color: var(--gold); }
+.introfade { position: fixed; inset: 0; background: #000; z-index: 24; pointer-events: none; }
 .clickcatch {
   position: fixed; inset: 0; z-index: 25; display: flex; align-items: center; justify-content: center;
   background: rgba(11, 14, 20, 0.55); color: var(--teal); font-size: 18px; letter-spacing: 1px;

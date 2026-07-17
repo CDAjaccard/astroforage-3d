@@ -92,9 +92,16 @@ export class Menus {
   /* ---------------- coop ---------------- */
   coop(status = ""): void {
     this.screen = "coop";
+    const book = settings.servers.map((s, i) =>
+      `<option value="${i}">${s.name} — ${s.url}</option>`).join("");
     this.show(`
       <div class="menu-card wide">
         <h2>${t("coopTitle")}</h2>
+        <label>${getLang() === "en" ? "Server book" : "Carnet de serveurs"}
+          <span class="bookrow"><select id="c-book"><option value="-1">—</option>${book}</select>
+          <button class="pbtn" data-a="bookAdd" title="+">＋</button>
+          <button class="pbtn danger" data-a="bookDel" title="−">－</button></span>
+        </label>
         <label>${t("server")}<input id="c-url" value="${settings.serverUrl || defaultServerUrl()}" spellcheck="false"></label>
         <label>${t("room")}<input id="c-room" value="KEPLER" maxlength="12" spellcheck="false"></label>
         <label>${t("nick")}<input id="c-nick" value="${settings.nick || ""}" maxlength="20" placeholder="Pilote"></label>
@@ -116,6 +123,25 @@ export class Menus {
       this.host.coopJoin(val("c-url"), val("c-room") || "KEPLER", val("c-nick") || "Pilote", val("c-pass"));
     });
     this.wire("[data-a=rooms]", () => void this.fetchRooms(val("c-url")));
+    const bookSel = this.root.querySelector("#c-book") as HTMLSelectElement;
+    bookSel?.addEventListener("change", () => {
+      const i = Number(bookSel.value);
+      if (i >= 0 && settings.servers[i]) {
+        (this.root.querySelector("#c-url") as HTMLInputElement).value = settings.servers[i].url;
+        void this.fetchRooms(settings.servers[i].url);
+      }
+    });
+    this.wire("[data-a=bookAdd]", () => {
+      const name = prompt(getLang() === "en" ? "Server name?" : "Nom du serveur ?", "Mon serveur");
+      if (!name) return;
+      settings.servers.push({ name: name.slice(0, 30), url: val("c-url") });
+      saveSettings();
+      this.coop();
+    });
+    this.wire("[data-a=bookDel]", () => {
+      const i = Number(bookSel?.value ?? -1);
+      if (i >= 0) { settings.servers.splice(i, 1); saveSettings(); this.coop(); }
+    });
     this.wire("[data-a=host]", async () => {
       const st = this.root.querySelector("#c-status") as HTMLElement;
       const r = await (window as any).af3d?.hostServer?.();

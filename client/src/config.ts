@@ -11,6 +11,8 @@ export interface Settings {
   cosmetic: Cosmetic;
   serverUrl: string;
   nick: string;
+  /** carnet de serveurs coop */
+  servers: Array<{ name: string; url: string }>;
 }
 
 const KEY = "af3d_settings";
@@ -30,7 +32,8 @@ export const settings: Settings = (() => {
     sens: 1, invertY: false, fov: 78, volume: 0.5, music: true, renderDist: 110,
     cosmetic: { suit: 0, visor: 0, accent: 0 },
     serverUrl: defaultServerUrl(),
-    nick: ""
+    nick: "",
+    servers: []
   };
   try {
     const raw = localStorage.getItem(KEY);

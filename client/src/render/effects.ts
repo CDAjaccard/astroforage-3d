@@ -46,7 +46,7 @@ export class Effects {
     scene.add(this.points);
   }
 
-  private emit(x: number, y: number, z: number, color: string, spread: number, up: number, grav: number, life: number): void {
+  private emit(x: number, y: number, z: number, color: string, spread: number, up: number, grav: number, life: number): number {
     const i = this.cursor;
     this.cursor = (this.cursor + 1) % MAX;
     const p = this.parts[i];
@@ -58,6 +58,7 @@ export class Effects {
     this.pos[i * 3] = x; this.pos[i * 3 + 1] = y; this.pos[i * 3 + 2] = z;
     const c = new THREE.Color(color);
     this.col[i * 3] = c.r; this.col[i * 3 + 1] = c.g; this.col[i * 3 + 2] = c.b;
+    return i;
   }
 
   /** poussière/fumée */
@@ -76,6 +77,13 @@ export class Effects {
   /** flamme de réacteur */
   flame(x: number, y: number, z: number): void {
     this.emit(x, y, z, Math.random() < 0.5 ? "#ffd23e" : "#ff8c42", 2, -6, -14, 0.5);
+  }
+  /** sable balayé horizontalement (tempête) */
+  sand(x: number, y: number, z: number): void {
+    const i = this.emit(x, y, z, "#c9a06a", 2, 0.4, -0.1, 1.4);
+    const p = this.parts[i];
+    p.vx = 16 + Math.random() * 10;   // vent dominant +X
+    p.vz = (Math.random() - 0.5) * 6;
   }
   /** colonne du monte-charge */
   beamCol(x: number, y: number, z: number): void {

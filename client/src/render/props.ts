@@ -3,6 +3,7 @@
  * L'astronaute est TOUJOURS procédural (recolorable pour le vestiaire coop). */
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { clone as skeletonClone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { COSMETIC, type Cosmetic } from "@astroforage/shared";
 
 const loader = new GLTFLoader();
@@ -23,9 +24,13 @@ async function loadGLB(url: string, targetH: number, yawOffset = 0): Promise<THR
     obj.position.x -= center.x;
     obj.position.z -= center.z;
     obj.position.y -= box.min.y;
+    /* l'offset d'orientation vit sur un nœud INTERNE : la racine reste libre
+     * pour le lacet du gameplay (qui l'écrase chaque frame) */
+    const orient = new THREE.Group();
+    orient.rotation.y = yawOffset;
+    orient.add(obj);
     const wrap = new THREE.Group();
-    wrap.rotation.y = yawOffset;
-    wrap.add(obj);
+    wrap.add(orient);
     return wrap;
   } catch {
     return null;
@@ -360,13 +365,28 @@ function labelIcoLight(_g: THREE.Group, col: string): THREE.Mesh {
   return led;
 }
 
-/* ---------- astronaute procédural (vestiaire coop) ---------- */
+/* ---------- astronaute (GLB stylisé riggé si présent, sinon procédural) ---------- */
 
 export interface AstroRig {
   group: THREE.Group;
-  legL: THREE.Object3D; legR: THREE.Object3D;
-  armL: THREE.Object3D; armR: THREE.Object3D;
+  legL: THREE.Object3D | null; legR: THREE.Object3D | null;
+  armL: THREE.Object3D | null; armR: THREE.Object3D | null;
   jetFlame: THREE.Object3D;
+  mixer?: THREE.AnimationMixer;
+  walk?: THREE.AnimationAction;
+}
+
+/** Flamme de jetpack attachable à n'importe quel rig. */
+function fallbackJetFlame(g: THREE.Group): THREE.Object3D {
+  const flame = new THREE.Mesh(
+    new THREE.ConeGeometry(0.1, 0.5, 8),
+    mat("#7de0d8", { emissive: "#38c0ff", emissiveIntensity: 3, transparent: true, opacity: 0.85 })
+  );
+  flame.rotation.x = Math.PI;
+  flame.position.set(0, 0.55, -0.32);
+  flame.visible = false;
+  g.add(flame);
+  return flame;
 }
 
 export function makeAstronaut(cos: Cosmetic): AstroRig {
@@ -409,13 +429,19 @@ export function makeAstronaut(cos: Cosmetic): AstroRig {
   return { group: g, legL, legR, armL, armR, jetFlame: flame };
 }
 
-/** Anime la marche/jetpack d'un rig d'astronaute. */
-export function animAstro(rig: AstroRig, anim: number, moving: boolean, jets: boolean): void {
-  const sw = moving ? Math.sin(anim * 7) * 0.6 : 0;
-  rig.legL.rotation.x = sw;
-  rig.legR.rotation.x = -sw;
-  rig.armL.rotation.x = -sw * 0.8;
-  rig.armR.rotation.x = sw * 0.8;
+/** Anime la marche/jetpack d'un rig d'astronaute (GLB riggé ou procédural). */
+export function animAstro(rig: AstroRig, anim: number, moving: boolean, jets: boolean, dt = 0): void {
+  if (rig.mixer && rig.walk) {
+    const target = moving ? 1.5 : 0;
+    rig.walk.timeScale += (target - rig.walk.timeScale) * Math.min(1, dt * 10);
+    rig.mixer.update(dt);
+  } else if (rig.legL && rig.legR && rig.armL && rig.armR) {
+    const sw = moving ? Math.sin(anim * 7) * 0.6 : 0;
+    rig.legL.rotation.x = sw;
+    rig.legR.rotation.x = -sw;
+    rig.armL.rotation.x = -sw * 0.8;
+    rig.armR.rotation.x = sw * 0.8;
+  }
   rig.jetFlame.visible = jets;
   if (jets) rig.jetFlame.scale.y = 0.8 + Math.random() * 0.5;
 }
@@ -429,24 +455,78 @@ export class Props {
   crystal!: THREE.Object3D;
   creature!: THREE.Object3D;
   heart!: THREE.Object3D;
+  astroScene: THREE.Object3D | null = null;
+  astroClips: THREE.AnimationClip[] = [];
   usedGLB: Record<string, boolean> = {};
 
   async load(): Promise<void> {
     const base = "assets/models/";
+    /* foreuse : le GLB généré a le nez vers -X ; on le tourne pour que le nez
+     * pointe -Z (convention du jeu : « avant » = direction de la caméra) */
     const [drill, rocket, robot, crystal, creature] = await Promise.all([
-      loadGLB(base + "foreuse.glb", 1.9),
+      loadGLB(base + "foreuse.glb", 1.9, -Math.PI / 2),
       loadGLB(base + "fusee.glb", 11),
       loadGLB(base + "robot.glb", 1.1),
       loadGLB(base + "cristal.glb", 1.3),
       loadGLB(base + "rampant.glb", 0.9)
     ]);
-    this.usedGLB = { drill: !!drill, rocket: !!rocket, robot: !!robot, crystal: !!crystal, creature: !!creature };
+    await this.loadAstro(base + "astronaute.glb");
+    this.usedGLB = { drill: !!drill, rocket: !!rocket, robot: !!robot, crystal: !!crystal, creature: !!creature, astro: !!this.astroScene };
     this.drill = drill ?? fallbackDrill();
     this.rocket = rocket ?? fallbackRocket();
     this.robot = robot ?? fallbackRobot();
     this.crystal = crystal ?? fallbackCrystal();
     this.creature = creature ?? fallbackCreature();
     this.heart = fallbackHeart();
+  }
+
+  /** Astronaute stylisé riggé (marche embarquée) — garde animations + squelette. */
+  private async loadAstro(url: string): Promise<void> {
+    try {
+      const gltf = await loader.loadAsync(url);
+      const scene = gltf.scene;
+      const box = new THREE.Box3().setFromObject(scene);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const s = 1.5 / Math.max(0.001, size.y);   // ~1.5 m de haut (chibi)
+      scene.scale.setScalar(s);
+      box.setFromObject(scene);
+      const center = new THREE.Vector3();
+      box.getCenter(center);
+      scene.position.set(-center.x, -box.min.y, -center.z);
+      this.astroScene = scene;
+      this.astroClips = gltf.animations ?? [];
+    } catch {
+      this.astroScene = null;
+    }
+  }
+
+  /** Rig d'astronaute : GLB stylisé (teinté par le vestiaire) ou repli procédural. */
+  makeAstro(cos: Cosmetic): AstroRig {
+    if (!this.astroScene) return makeAstronaut(cos);
+    const wrap = new THREE.Group();
+    const inst = skeletonClone(this.astroScene);
+    /* teinte du vestiaire : lerp doux vers la couleur de combinaison */
+    const su = COSMETIC.suit[cos.suit % COSMETIC.suit.length];
+    const tint = new THREE.Color(su.col);
+    inst.traverse(o => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh && m.material) {
+        const mm = (m.material as THREE.MeshStandardMaterial).clone();
+        if (mm.color) mm.color.lerp(tint, 0.28);
+        m.material = mm;
+      }
+    });
+    wrap.add(inst);
+    const rig: AstroRig = { group: wrap, legL: null, legR: null, armL: null, armR: null, jetFlame: fallbackJetFlame(wrap) };
+    if (this.astroClips.length) {
+      rig.mixer = new THREE.AnimationMixer(inst);
+      const clip = this.astroClips.find(c => /walk/i.test(c.name)) ?? this.astroClips[0];
+      rig.walk = rig.mixer.clipAction(clip);
+      rig.walk.play();
+      rig.walk.timeScale = 0;
+    }
+    return rig;
   }
 
   makeDrill(): THREE.Object3D { return this.drill.clone(true); }

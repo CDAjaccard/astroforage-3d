@@ -160,10 +160,11 @@ export const UPGRADES: Record<string, UpgradeDef> = {
   coque: { nom: "Coque", nomEn: "Hull", desc: "Résiste aux chutes, à la lave et aux explosions.", descEn: "Withstands falls, lava and explosions.", vals: [60, 100, 150, 220], costs: [null, { fer: 15 }, { acier: 6 }, { lingot_titane: 6 }] },
   refroid: { nom: "Refroidissement", nomEn: "Cooling", desc: "Repousse la profondeur de surchauffe.", descEn: "Pushes the overheating depth further down.", vals: [55, 85, 115, 142, 205], costs: [null, { verre: 4, lingot_cuivre: 6 }, { acier: 8, circuit: 2 }, { lingot_titane: 6, circuit: 4 }, { magmatite: 6, acier: 6 }] },
   jets: { nom: "Réacteurs", nomEn: "Thrusters", desc: "Poussée des réacteurs de vol de la foreuse.", descEn: "Thrust of the pod's flight thrusters.", vals: [26, 32, 40], costs: [null, { lingot_cuivre: 6 }, { acier: 6 }] },
-  jetpack: { nom: "Jetpack", nomEn: "Jetpack", desc: "Autonomie de vol de l'astronaute à pied.", descEn: "Flight endurance of the astronaut on foot.", vals: [90, 150, 240], costs: [null, { lingot_cuivre: 4, verre: 2 }, { cristal: 2, circuit: 2 }] }
+  jetpack: { nom: "Jetpack", nomEn: "Jetpack", desc: "Autonomie de vol de l'astronaute à pied.", descEn: "Flight endurance of the astronaut on foot.", vals: [90, 150, 240], costs: [null, { lingot_cuivre: 4, verre: 2 }, { cristal: 2, circuit: 2 }] },
+  radar: { nom: "Radar à minerais", nomEn: "Ore radar", desc: "Instrument de bord de la foreuse : indique la direction des filons proches.", descEn: "Drill pod instrument: points at nearby ore veins.", vals: [8, 13, 20, 30], costs: [null, { cuivre: 8 }, { circuit: 2, verre: 3 }, { circuit: 5, lingot_titane: 3 }] }
 };
-export type UpKey = "foret" | "soute" | "batterie" | "coque" | "refroid" | "jets" | "jetpack";
-export const DEFAULT_UP: Record<UpKey, number> = { foret: 1, soute: 1, batterie: 1, coque: 1, refroid: 1, jets: 1, jetpack: 1 };
+export type UpKey = "foret" | "soute" | "batterie" | "coque" | "refroid" | "jets" | "jetpack" | "radar";
+export const DEFAULT_UP: Record<UpKey, number> = { foret: 1, soute: 1, batterie: 1, coque: 1, refroid: 1, jets: 1, jetpack: 1, radar: 1 };
 
 /* ---- Paliers de profondeur ---- */
 export interface DepthDef { m: number; sam: string; samEn: string; gift: Record<string, number> }

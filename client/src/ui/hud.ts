@@ -33,6 +33,8 @@ export class Hud {
   private heatEl!: HTMLElement;
   private depthEl!: HTMLElement;
   private compassEl!: HTMLElement;
+  private radarCv!: HTMLCanvasElement;
+  private radarSweep = 0;
   private questTxt!: HTMLElement; private questTip!: HTMLElement; private questProg!: HTMLElement;
   private samBox!: HTMLElement; private samTxt!: HTMLElement;
   private toastBox!: HTMLElement;
@@ -85,6 +87,10 @@ export class Hud {
     this.heatEl.textContent = "🌡 " + t("heat");
 
     const br = el("div", "hud-br", this.root);
+    this.radarCv = document.createElement("canvas");
+    this.radarCv.width = this.radarCv.height = 132;
+    this.radarCv.className = "radar hidden";
+    br.appendChild(this.radarCv);
     this.compassEl = el("div", "compass hidden", br);
     this.depthEl = el("div", "depth", br);
 
@@ -118,6 +124,77 @@ export class Hud {
 
   hurtFlash(a: number): void {
     this.vignette.style.opacity = String(Math.min(0.85, a));
+  }
+
+  /** Radar à minerais : blips {dx, dz, dy, col} en mètres relatifs, orienté visée. */
+  drawRadar(dt: number, visible: boolean, blips: Array<{ dx: number; dz: number; dy: number; col: string }>, radiusM: number, yaw: number): void {
+    this.radarCv.classList.toggle("hidden", !visible);
+    if (!visible) return;
+    const ctx = this.radarCv.getContext("2d")!;
+    const S = this.radarCv.width, C = S / 2, R = C - 6;
+    ctx.clearRect(0, 0, S, S);
+    /* fond + anneaux */
+    ctx.fillStyle = "rgba(10,16,22,0.72)";
+    ctx.beginPath();
+    ctx.arc(C, C, R + 4, 0, 6.2832);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(125,224,216,0.35)";
+    for (const rr of [R, R * 0.5]) {
+      ctx.beginPath();
+      ctx.arc(C, C, rr, 0, 6.2832);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(C, C - R); ctx.lineTo(C, C + R);
+    ctx.moveTo(C - R, C); ctx.lineTo(C + R, C);
+    ctx.strokeStyle = "rgba(125,224,216,0.15)";
+    ctx.stroke();
+    /* balayage */
+    this.radarSweep = (this.radarSweep + dt * 2.4) % 6.2832;
+    const grad = ctx.createConicGradient ? ctx.createConicGradient(this.radarSweep, C, C) : null;
+    if (grad) {
+      grad.addColorStop(0, "rgba(125,224,216,0.28)");
+      grad.addColorStop(0.12, "rgba(125,224,216,0)");
+      grad.addColorStop(1, "rgba(125,224,216,0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(C, C, R, 0, 6.2832);
+      ctx.fill();
+    }
+    /* blips (repère : haut = direction de visée) */
+    const cos = Math.cos(yaw), sin = Math.sin(yaw);
+    for (const b of blips) {
+      /* rotation monde -> écran radar : avant (-sin,-cos) doit pointer vers le haut */
+      const rx = b.dx * cos - b.dz * sin;
+      const rz = b.dx * sin + b.dz * cos;
+      const px = C + (rx / radiusM) * R;
+      const py = C + (rz / radiusM) * R;
+      const dd = Math.hypot(px - C, py - C);
+      if (dd > R - 2) continue;
+      ctx.fillStyle = b.col;
+      if (b.dy > 3) {          // au-dessus : triangle haut
+        ctx.beginPath();
+        ctx.moveTo(px, py - 3.4); ctx.lineTo(px + 3, py + 2.2); ctx.lineTo(px - 3, py + 2.2);
+        ctx.fill();
+      } else if (b.dy < -3) {  // en dessous : triangle bas
+        ctx.beginPath();
+        ctx.moveTo(px, py + 3.4); ctx.lineTo(px + 3, py - 2.2); ctx.lineTo(px - 3, py - 2.2);
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(px, py, 2.6, 0, 6.2832);
+        ctx.fill();
+      }
+    }
+    /* curseur central + portée */
+    ctx.fillStyle = "#dfe8ee";
+    ctx.beginPath();
+    ctx.moveTo(C, C - 5); ctx.lineTo(C + 4, C + 4); ctx.lineTo(C - 4, C + 4);
+    ctx.fill();
+    ctx.fillStyle = "rgba(125,224,216,0.8)";
+    ctx.font = "10px system-ui";
+    ctx.textAlign = "right";
+    ctx.fillText(radiusM + " m", S - 8, S - 8);
   }
 
   /** Boussole de retour : angle relatif à la visée, distance et symbole cible. */

@@ -1,6 +1,6 @@
-/* ASTRO·FORAGE 3D — orchestrateur : modes, avatars (astronaute + foreuse),
- * caméras FPS/TPS, forage, base, fusée, coop, événements, sauvegarde.
- * Les nombres d'équilibrage viennent de l'original (unités : mètres, 1 voxel = 2 m). */
+﻿/* ASTROÂ·FORAGE 3D â€” orchestrateur : modes, avatars (astronaute + foreuse),
+ * camÃ©ras FPS/TPS, forage, base, fusÃ©e, coop, Ã©vÃ©nements, sauvegarde.
+ * Les nombres d'Ã©quilibrage viennent de l'original (unitÃ©s : mÃ¨tres, 1 voxel = 2 m). */
 import * as THREE from "three";
 import {
   W, SURF, O2MAX, POUCH, DAYLEN, BEAM_COST, BEAM_CD, QUESTS, FEATS, BUILDINGS,
@@ -10,7 +10,7 @@ import {
 } from "@astroforage/shared";
 import { SceneMgr } from "../render/sceneMgr.js";
 import { VoxelWorld } from "../render/voxelWorld.js";
-import { Props, makeAstronaut, makeBuilding, makeNest, makeDebris, animAstro, type AstroRig } from "../render/props.js";
+import { Props, makeBuilding, makeNest, makeDebris, animAstro, type AstroRig } from "../render/props.js";
 import { Effects } from "../render/effects.js";
 import { Hud, type HudState } from "../ui/hud.js";
 import { Panels, type PanelHost } from "../ui/panels.js";
@@ -29,11 +29,11 @@ import {
 } from "../save/store.js";
 
 const VOX = 2;
-const AH = { x: 0.42, y: 0.82, z: 0.42 };  // demi-boîte astronaute
-const DH = { x: 0.76, y: 0.76, z: 0.76 };  // demi-boîte foreuse
+const AH = { x: 0.42, y: 0.82, z: 0.42 };  // demi-boÃ®te astronaute
+const DH = { x: 0.76, y: 0.76, z: 0.76 };  // demi-boÃ®te foreuse
 const EYE = 0.62;                          // hauteur des yeux depuis le centre
-const REACH = 4.6;                         // portée de forage (m)
-const GRAV = 44;                           // 22 t/s² × 2
+const REACH = 4.6;                         // portÃ©e de forage (m)
+const GRAV = 44;                           // 22 t/sÂ² Ã— 2
 
 interface Remote {
   rig: AstroRig | null;
@@ -85,7 +85,7 @@ export class Game {
   private projMeshes: THREE.Object3D[] = [];
   private nestMeshes = new Map<string, THREE.Object3D>();
   private debrisMeshes = new Map<string, THREE.Object3D>();
-  private specials = new Map<string, THREE.Object3D>();  // cristaux + cœur
+  private specials = new Map<string, THREE.Object3D>();  // cristaux + cÅ“ur
   private remotes = new Map<number, Remote>();
   private ghost: THREE.Object3D | null = null;
   placing: string | null = null;
@@ -97,12 +97,19 @@ export class Game {
   private sendT = 0;
   private featsCache = loadFeats();
   private launchAnim = { t: 0, act: 1 as 1 | 2, failT: 0, failW: 0, w: 0, ignited: false, cdN: -1 };
+  private drillSpin!: THREE.Group;
+  private drillSpinMesh!: THREE.Mesh;
+  private drillFlames: THREE.Mesh[] = [];
+  private drillTilt = { x: 0, z: 0 };
+  private thrusting = false;
   private hurtA = 0;
   private slotId: string | null = null;
   private uiLayer: HTMLDivElement;
   private introT = 0;
   private introBoomed = false;
   private introFade!: HTMLDivElement;
+  private radarT = 0;
+  private radarBlips: Array<{ dx: number; dz: number; dy: number; col: string }> = [];
 
   constructor(container: HTMLElement) {
     const canvas = document.createElement("canvas");
@@ -214,11 +221,12 @@ export class Game {
     this.scanSpecials();
 
     this.drillMesh = this.props.makeDrill();
+    this.buildDrillFx();
     this.scene.scene.add(this.drillMesh);
     this.rocketMesh = this.props.makeRocket();
     this.rocketMesh.position.set((ROCK_POS.x + 0.5) * VOX, 0, (ROCK_POS.z + 0.5) * VOX);
     this.scene.scene.add(this.rocketMesh);
-    this.myRig = makeAstronaut(settings.cosmetic);
+    this.myRig = this.props.makeAstro(settings.cosmetic);
     this.scene.scene.add(this.myRig.group);
     this.syncNests();
   }
@@ -265,7 +273,7 @@ export class Game {
     if (!opts.slotId) {
       const q = QUESTS[0];
       this.hud.say(pick(q.sam, q.samEn), 14);
-      /* petite cinématique de crash : fondu au noir + impact */
+      /* petite cinÃ©matique de crash : fondu au noir + impact */
       this.introT = 3.4;
       this.introBoomed = false;
       this.introFade.style.display = "block";
@@ -283,13 +291,13 @@ export class Game {
       this.setupWorld();
       this.resetAvatars();
       this.enterPlay();
-      this.hud.toast(`🛰️ Coop — ${net.room}`, "ok");
+      this.hud.toast(`ðŸ›°ï¸ Coop â€” ${net.room}`, "ok");
       this.hud.say(pick(
-        "Liaison coop établie, pilote. Vous partagez KEPLER-9b, la base et les objectifs avec votre équipage. Forez, construisez, automatisez — ensemble !",
-        "Co-op link established, pilot. You share KEPLER-9b, the base and the objectives with your crew. Dig, build, automate — together!"), 13);
+        "Liaison coop Ã©tablie, pilote. Vous partagez KEPLER-9b, la base et les objectifs avec votre Ã©quipage. Forez, construisez, automatisez â€” ensemble !",
+        "Co-op link established, pilot. You share KEPLER-9b, the base and the objectives with your crew. Dig, build, automate â€” together!"), 13);
     };
     net.connect(url, room, name, pass || undefined, (reason) => {
-      const msg = reason === "full" ? t("roomFull") : reason === "password" ? t("badPass") : "❌ " + reason;
+      const msg = reason === "full" ? t("roomFull") : reason === "password" ? t("badPass") : "âŒ " + reason;
       this.menus.coopStatus(msg);
     });
     /* les callbacks de fermeture ne s'activent qu'une fois en jeu */
@@ -359,15 +367,15 @@ export class Game {
   }
 
   applySettings(): void {
-    /* recrée le rig local avec les nouvelles couleurs */
+    /* recrÃ©e le rig local avec les nouvelles couleurs */
     if (this.myRig) {
       this.scene.scene.remove(this.myRig.group);
-      this.myRig = makeAstronaut(settings.cosmetic);
+      this.myRig = this.props.makeAstro(settings.cosmetic);
       this.scene.scene.add(this.myRig.group);
     }
   }
 
-  /* ================= entrées ================= */
+  /* ================= entrÃ©es ================= */
 
   private onAction(a: string): void {
     if (this.mode === "menu") return;
@@ -423,7 +431,7 @@ export class Game {
     this.input.clear();
     this.menus.clickCatch(false);
     this.menus.pause();
-    /* le solo est mis en pause ; le coop continue de tourner côté serveur */
+    /* le solo est mis en pause ; le coop continue de tourner cÃ´tÃ© serveur */
   }
 
   openPanel(name: string, arg?: unknown): void {
@@ -444,13 +452,51 @@ export class Game {
     const c = this.scene.camera;
     const dir = new THREE.Vector3();
     c.getWorldDirection(dir);
-    /* le rayon part de la tête de l'avatar (pas de la caméra TPS) */
+    /* le rayon part de la tÃªte de l'avatar (pas de la camÃ©ra TPS) */
     const b = this.astro.inDrill ? this.drill : this.astro;
     const oy = b.y + (this.astro.inDrill ? 0.4 : EYE);
     return { ox: b.x, oy, oz: b.z, dx: dir.x, dy: dir.y, dz: dir.z };
   }
 
-  /* ---- intérieur de la fusée ---- */
+  /** Attache les effets animÃ©s Ã  la foreuse : foret tournant + flammes de rÃ©acteurs. */
+  private buildDrillFx(): void {
+    /* foret-vortex : cÃ´ne striÃ© qui tourne pendant le forage */
+    const cv = document.createElement("canvas");
+    cv.width = 64; cv.height = 32;
+    const cx = cv.getContext("2d")!;
+    cx.fillStyle = "#5a6474";
+    cx.fillRect(0, 0, 64, 32);
+    cx.fillStyle = "#aeb9cb";
+    for (let i = 0; i < 8; i++) cx.fillRect(i * 8, 0, 3, 32);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    this.drillSpin = new THREE.Group();
+    this.drillSpin.position.set(0, 0.85, -1.45);
+    const orient = new THREE.Group();
+    orient.rotation.x = -Math.PI / 2;      // pointe du cÃ´ne vers -Z (l'avant)
+    this.drillSpinMesh = new THREE.Mesh(
+      new THREE.ConeGeometry(0.42, 1.0, 14, 1, true),
+      new THREE.MeshStandardMaterial({ map: tex, metalness: 0.85, roughness: 0.3, transparent: true, opacity: 0, side: THREE.DoubleSide })
+    );
+    orient.add(this.drillSpinMesh);
+    this.drillSpin.add(orient);
+    this.drillMesh.add(this.drillSpin);
+    /* flammes des rÃ©acteurs (sous la coque) */
+    this.drillFlames = [];
+    for (const sx of [-0.52, 0.52]) {
+      const fl = new THREE.Mesh(
+        new THREE.ConeGeometry(0.16, 0.9, 10),
+        new THREE.MeshBasicMaterial({ color: 0x7de0ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false })
+      );
+      fl.rotation.x = Math.PI;             // pointe vers le bas
+      fl.position.set(sx, -0.15, 0.35);
+      fl.visible = false;
+      this.drillMesh.add(fl);
+      this.drillFlames.push(fl);
+    }
+  }
+
+  /* ---- intÃ©rieur de la fusÃ©e ---- */
   enterRocket(): void {
     if (!this.sim || this.astro.inDrill) return;
     const a = this.astro;
@@ -508,7 +554,7 @@ export class Game {
     this.decoGhost = null;
     this.placingDeco = null;
   }
-  /** x-pièce visé au sol (caméra intérieure) */
+  /** x-piÃ¨ce visÃ© au sol (camÃ©ra intÃ©rieure) */
   private interiorAimX(): number | null {
     const cam = this.scene.camera;
     const dir = new THREE.Vector3();
@@ -544,7 +590,7 @@ export class Game {
     this.astro.o2 = O2MAX;
     this.interior.syncDecos(this.sim!.S.decos, performance.now() / 1000);
 
-    /* placement de décoration */
+    /* placement de dÃ©coration */
     if (this.placingDeco && this.decoGhost) {
       const ax = this.interiorAimX();
       this.decoGhost.visible = ax !== null;
@@ -560,7 +606,7 @@ export class Game {
         }
       }
     } else if (this.input.keys.mouseL) {
-      /* clic sur une déco posée : la ranger */
+      /* clic sur une dÃ©co posÃ©e : la ranger */
       this.input.keys.mouseL = false;
       const ax = this.interiorAimX();
       if (ax !== null) {
@@ -579,10 +625,11 @@ export class Game {
 
     if (a.inDrill) {
       if (!d.grounded) { this.hud.toast(t("landFirst"), "warn"); au.err(); return; }
-      /* sortir : cherche une case libre à côté */
+      /* sortir : cherche une case libre Ã  cÃ´tÃ© */
       a.inDrill = false;
       d.digging = false;
       this.digTarget = null;
+      this.thrusting = false;
       au.setDig(false);
       const angles = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
       let placed = false;
@@ -602,9 +649,9 @@ export class Game {
 
     const ray = this.camRay();
     const hit = raycastVoxel(S, ray.ox, ray.oy, ray.oz, ray.dx, ray.dy, ray.dz, REACH, true);
-    /* cristal visé ? */
+    /* cristal visÃ© ? */
     if (hit && hit.id === 8) { this.harvestCrystal(hit.x, hit.z, hit.d); return; }
-    if (hit && hit.id === 31) { /* le Cœur se fore (foreuse) — indice */ this.hud.toast(pick("Le Cœur ne se cueille pas — il se fore !", "The Heart can't be picked — drill it!"), "info"); return; }
+    if (hit && hit.id === 31) { /* le CÅ“ur se fore (foreuse) â€” indice */ this.hud.toast(pick("Le CÅ“ur ne se cueille pas â€” il se fore !", "The Heart can't be picked â€” drill it!"), "info"); return; }
 
     /* foreuse proche ? */
     if (Math.hypot(a.x - d.x, a.y - d.y, a.z - d.z) < 3.6) {
@@ -613,7 +660,7 @@ export class Game {
       setTimeout(() => au.thud(), 200);
       return;
     }
-    /* fusée : on entre dans la base (vestiaire / établi / console) */
+    /* fusÃ©e : on entre dans la base (vestiaire / Ã©tabli / console) */
     const rx = (ROCK_POS.x + 0.5) * VOX, rz = (ROCK_POS.z + 0.5) * VOX;
     if (!S.launched && Math.hypot(a.x - rx, a.z - rz) < 5.5 && a.y < 8) { this.enterRocket(); return; }
     /* robot proche ? */
@@ -624,7 +671,7 @@ export class Game {
         return;
       }
     }
-    /* bâtiment proche ? */
+    /* bÃ¢timent proche ? */
     let best: any = null, bd = 3.8;
     for (const b of S.builds) {
       const dd = Math.hypot(a.x - b.x * VOX, a.z - b.z * VOX);
@@ -641,7 +688,7 @@ export class Game {
     a.pouch++;
     const px = (x + 0.5) * VOX, py = topYOfRow(d) - 1, pz = (z + 0.5) * VOX;
     this.fx.chunks(px, py, pz, "#ff9de8", 9);
-    this.fx.floater(px, py, pz, "+1 Cristal 💎", "#ff9de8");
+    this.fx.floater(px, py, pz, "+1 Cristal ðŸ’Ž", "#ff9de8");
     au.pickup();
     au.blip(1500, 0.14, 0.09);
   }
@@ -649,7 +696,7 @@ export class Game {
   private deployRobot(): void {
     if (!this.sim || this.mode !== "play") return;
     const d = this.drill;
-    if (!this.astro.inDrill) { this.hud.toast(pick("Déployez les robots depuis la foreuse.", "Deploy robots from the pod."), "warn"); return; }
+    if (!this.astro.inDrill) { this.hud.toast(pick("DÃ©ployez les robots depuis la foreuse.", "Deploy robots from the pod."), "warn"); return; }
     this.sim.intent({ i: "robotDeploy", x: Math.floor(d.x / VOX), z: Math.floor(d.z / VOX), d: rowOfY(d.y) });
     au.build();
   }
@@ -676,7 +723,7 @@ export class Game {
     this.hud.toast(t("beamOk"), "ok");
   }
 
-  /* ---- placement de bâtiment ---- */
+  /* ---- placement de bÃ¢timent ---- */
   startPlacing(key: string): void {
     this.placing = key;
     this.panels.close();
@@ -693,14 +740,14 @@ export class Game {
     });
     this.scene.scene.add(this.ghost);
     this.input.lock();
-    this.hud.toast("📍 " + pick(BUILDINGS[key].nom, BUILDINGS[key].nomEn) + " — " + t("place"), "info");
+    this.hud.toast("ðŸ“ " + pick(BUILDINGS[key].nom, BUILDINGS[key].nomEn) + " â€” " + t("place"), "info");
   }
   cancelPlacing(): void {
     if (this.ghost) this.scene.scene.remove(this.ghost);
     this.ghost = null;
     this.placing = null;
   }
-  /** point de sol visé pour le placement (intersection avec le plan de surface) */
+  /** point de sol visÃ© pour le placement (intersection avec le plan de surface) */
   private groundAim(): { cx: number; cz: number } | null {
     const ray = this.camRay();
     if (ray.dy > -0.05) return null;
@@ -710,7 +757,7 @@ export class Game {
     return { cx: Math.round(wx / VOX - 1) + 1, cz: Math.round(wz / VOX - 1) + 1 };
   }
 
-  /* ================= événements de la sim ================= */
+  /* ================= Ã©vÃ©nements de la sim ================= */
 
   private handleEvents(evs: GameEvent[]): void {
     for (const e of evs) {
@@ -732,7 +779,7 @@ export class Game {
         case "hitfx": this.fx.chunks(e.x, e.y, e.z, "#7dff8a", 5); break;
         case "quake": this.scene.shake = Math.max(this.scene.shake, 2.5); au.thud(); break;
         case "meteor": break; // le boom d'impact suit
-        case "storm": break;  // reflété par S.storm
+        case "storm": break;  // reflÃ©tÃ© par S.storm
         case "milestone": break;
         case "heart": au.cash(); this.scene.shake = Math.max(this.scene.shake, 5); break;
         case "launch": this.beginLaunch(e.act); break;
@@ -774,7 +821,7 @@ export class Game {
         if (rej > 0) this.inv[r] = (this.inv[r] || 0) + rej;
       }
       this.pendingDeposit = {};
-      if (n > 0) { this.hud.toast(`📦 +${n} ${t("depositOk").replace("📦 ", "")}`, "ok"); au.cash(); }
+      if (n > 0) { this.hud.toast(`ðŸ“¦ +${n} ${t("depositOk").replace("ðŸ“¦ ", "")}`, "ok"); au.cash(); }
     } else if (m.i === "upgrade" && m.up) {
       const upds = this.sim!.myUp as any;
       upds[m.up.key] = m.up.lvl;
@@ -798,9 +845,10 @@ export class Game {
       let r = this.remotes.get(id);
       if (!r) {
         const holder = new THREE.Group();
-        const rig = makeAstronaut(p.cos);
+        const rig = this.props.makeAstro(p.cos);
         const drill = this.props.makeDrill();
         drill.visible = false;
+        drill.rotation.y = Math.PI;   // le holder est orientÃ© yaw+Ï€ (convention avatar)
         holder.add(rig.group, drill);
         const label = this.nameSprite(p.name);
         label.position.y = 2.2;
@@ -836,7 +884,7 @@ export class Game {
     return sp;
   }
 
-  /* ---- props spéciaux (cristaux / cœur / nids / débris) ---- */
+  /* ---- props spÃ©ciaux (cristaux / cÅ“ur / nids / dÃ©bris) ---- */
   private scanSpecials(): void {
     for (const [, o] of this.specials) this.scene.scene.remove(o);
     this.specials.clear();
@@ -903,7 +951,7 @@ export class Game {
       if (this.mode === "launch") this.updateLaunchAnim(dt);
     }
 
-    /* envoi avatar (18 Hz) — le solo l'utilise aussi (cibles faune) */
+    /* envoi avatar (18 Hz) â€” le solo l'utilise aussi (cibles faune) */
     this.sendT += dt;
     if (this.sendT >= 1 / SEND_HZ) {
       this.sendT = 0;
@@ -933,7 +981,7 @@ export class Game {
     const stormA = sim.S.storm ? 1 : 0;
     this.scene.updateEnv(sim.daylight, depth, stormA, performance.now() / 1000, dayPhase(sim.S.dayT));
     if (this.mode === "interior") {
-      /* éclairage intérieur fixe : pas de lampe frontale ni de soleil */
+      /* Ã©clairage intÃ©rieur fixe : pas de lampe frontale ni de soleil */
       this.scene.hemi.intensity = 0.85;
       this.scene.sun.intensity = 0;
       this.scene.lamp.intensity = 0;
@@ -963,12 +1011,12 @@ export class Game {
     this.scene.render(dt);
   }
 
-  /* ---- astronaute à pied (port de updateAstro, unités ×2) ---- */
+  /* ---- astronaute Ã  pied (port de updateAstro, unitÃ©s Ã—2) ---- */
   private updateAstro(dt: number): void {
     const a = this.astro, K = this.input.keys, S = this.sim!.S;
     const jpMax = upVal(this.sim!.myUp, "jetpack") + (this.sim!.S.research.nitro ? 80 : 0);
 
-    /* direction caméra (plan horizontal) */
+    /* direction camÃ©ra (plan horizontal) */
     const yaw = this.input.yaw;
     let ix = 0, iz = 0;
     if (K.fwd) { ix -= Math.sin(yaw); iz -= Math.cos(yaw); }
@@ -989,7 +1037,7 @@ export class Game {
     /* saut + jetpack */
     a.jets = false;
     if (this.input.jumpBuf > 0 && a.grounded) {
-      a.vy = 17.2 * 0.55;             // saut ~1.6 m (gravité forte)
+      a.vy = 17.2 * 0.55;             // saut ~1.6 m (gravitÃ© forte)
       this.input.jumpBuf = 0;
       a.grounded = false;
       au.blip(340, 0.06, 0.07);
@@ -1016,7 +1064,7 @@ export class Game {
     const atSurf = a.y > -1.2;
     if (a.grounded) a.jp = Math.min(jpMax, a.jp + (atSurf ? 45 : 18) * dt);
 
-    /* oxygène */
+    /* oxygÃ¨ne */
     const depth = -a.y;
     if (depth > 1) {
       a.o2 = Math.max(0, a.o2 - 1.05 * DIFFS[S.diff].o2 * dt);
@@ -1031,14 +1079,14 @@ export class Game {
     }
     if (a.o2 > 80) a.o2Warn = false;
 
-    /* surface : sacoche + débris */
+    /* surface : sacoche + dÃ©bris */
     if (atSurf) {
       this.flushPouch();
       this.collectDebris(a.x, a.z);
     }
   }
 
-  /* ---- foreuse pilotée (port de updateDrill) ---- */
+  /* ---- foreuse pilotÃ©e (port de updateDrill) ---- */
   private updateDrill(dt: number): void {
     const d = this.drill, a = this.astro, K = this.input.keys, S = this.sim!.S;
     const up = this.sim!.myUp;
@@ -1058,7 +1106,7 @@ export class Game {
     };
 
     const boosting = K.boost && d.en > 8;
-    /* déplacement horizontal relatif caméra */
+    /* dÃ©placement horizontal relatif camÃ©ra */
     const yaw = this.input.yaw;
     let ix = 0, iz = 0;
     if (K.fwd) { ix -= Math.sin(yaw); iz -= Math.cos(yaw); }
@@ -1079,6 +1127,7 @@ export class Game {
     if (hv > vmax) { d.vx = d.vx / hv * vmax; d.vz = d.vz / hv * vmax; }
 
     const thrust = K.up && d.en > 0;
+    this.thrusting = thrust;
     if (thrust) {
       d.vy += st.jets * 2 * (boosting ? 1.28 : 1) * dt;
       if (Math.random() < dt * 26) this.fx.flame(d.x, d.y - 0.8, d.z);
@@ -1102,7 +1151,7 @@ export class Game {
     a.jp = Math.min(jpMax, a.jp + 40 * dt);
     a.x = d.x; a.y = d.y; a.z = d.z;
 
-    /* ---- forage à la visée ---- */
+    /* ---- forage Ã  la visÃ©e ---- */
     let digging = false;
     this.digTarget = null;
     if (d.en > 0 && K.mouseL && !this.placing) {
@@ -1143,7 +1192,7 @@ export class Game {
     au.setBoost(d.boosting, digging);
     if (d.boosting && digging) this.scene.shake = Math.max(this.scene.shake, 0.9);
 
-    /* énergie */
+    /* Ã©nergie */
     const drain = (0.18 + (hv > 0.8 ? 0.85 : 0) + (thrust ? 1.7 : 0) + (digging ? 2.4 : 0)) * (boosting ? 2.1 : 1);
     d.en = Math.max(0, d.en - drain * DIFFS[S.diff].drain * dt);
     if (K.boost && !boosting && d.en > 0) note(t("boostLow"));
@@ -1161,10 +1210,10 @@ export class Game {
     /* lave */
     if (touchesLava(S, d, DH.x, DH.y, DH.z)) {
       d.hp -= 13 * dt;
-      if (Math.random() < dt * 2) { au.sizzle(); this.fx.floater(d.x, d.y + 1.2, d.z, "🔥", "#ff6b5e"); }
+      if (Math.random() < dt * 2) { au.sizzle(); this.fx.floater(d.x, d.y + 1.2, d.z, "ðŸ”¥", "#ff6b5e"); }
     }
 
-    /* surface : dépôt / recharge / réparation */
+    /* surface : dÃ©pÃ´t / recharge / rÃ©paration */
     this.collectDebris(d.x, d.z);
     const atSurf = d.y > -3 && d.y < 6;
     if (atSurf) {
@@ -1208,7 +1257,7 @@ export class Game {
     const a = this.astro;
     if (a.pouch > 0) {
       this.sim!.intent({ i: "deposit", items: { cristal: a.pouch } });
-      this.hud.toast(`💎 +${a.pouch} ${t("crystalsDrop").replace("💎 ", "")}`, "ok");
+      this.hud.toast(`ðŸ’Ž +${a.pouch} ${t("crystalsDrop").replace("ðŸ’Ž ", "")}`, "ok");
       a.pouch = 0;
       au.cash();
     }
@@ -1247,7 +1296,7 @@ export class Game {
     this.sim!.intent({ i: "rescue" });
     this.scene.shake = Math.max(this.scene.shake, 6);
     au.boom();
-    this.hud.toast(`${t("rescued")} (${reason})` + (lost > 0 ? ` — ${lost} ${t("lostCargo")}` : ""), "bad");
+    this.hud.toast(`${t("rescued")} (${reason})` + (lost > 0 ? ` â€” ${lost} ${t("lostCargo")}` : ""), "bad");
   }
 
   /* ---- placement ---- */
@@ -1270,13 +1319,13 @@ export class Game {
       if (!ok) { this.hud.toast(t("cantPlace"), "warn"); au.err(); return; }
       this.sim.intent({ i: "build", key: this.placing, x: aim.cx, z: aim.cz });
       au.build();
-      /* enchaîne si répétable et payable */
+      /* enchaÃ®ne si rÃ©pÃ©table et payable */
       const def = BUILDINGS[this.placing];
       if (!def.repeat) this.cancelPlacing();
     }
   }
 
-  /* ---- caméra ---- */
+  /* ---- camÃ©ra ---- */
   private updateCamera(dt: number): void {
     const cam = this.scene.camera;
     if (this.mode === "interior") {
@@ -1312,7 +1361,7 @@ export class Game {
       this.myRig.group.visible = false;
       this.drillMesh.visible = true;
       if (this.astro.inDrill) {
-        /* en FPS foreuse : le mesh est sous la caméra, léger recul visuel */
+        /* en FPS foreuse : le mesh est sous la camÃ©ra, lÃ©ger recul visuel */
         this.drillMesh.visible = false;
       }
     } else {
@@ -1327,15 +1376,49 @@ export class Game {
     }
   }
 
-  /* ---- visuels des entités ---- */
+  /* ---- visuels des entitÃ©s ---- */
   private updateEntities(dt: number): void {
     const S = this.sim!.S;
     const time = performance.now() / 1000;
 
-    /* foreuse */
+    /* foreuse : position, orientation, inclinaison, animations */
     const d = this.drill;
-    this.drillMesh.position.set(d.x, d.y - DH.y, d.z);
-    if (this.astro.inDrill) this.drillMesh.rotation.y = this.input.yaw + Math.PI;
+    const hover = this.astro.inDrill && !d.grounded ? Math.sin(time * 3.1) * 0.05 : 0;
+    this.drillMesh.position.set(d.x, d.y - DH.y + hover, d.z);
+    if (this.astro.inDrill) {
+      const yaw = this.input.yaw;
+      this.drillMesh.rotation.y = yaw;                       // nez -Z = direction de visÃ©e
+      /* inclinaison : pique du nez en avanÃ§ant, roulis en translation latÃ©rale */
+      const fx2 = -Math.sin(yaw), fz2 = -Math.cos(yaw);
+      const rx2 = Math.cos(yaw), rz2 = -Math.sin(yaw);
+      const vf = d.vx * fx2 + d.vz * fz2;
+      const vr = d.vx * rx2 + d.vz * rz2;
+      const tx = Math.max(-0.2, Math.min(0.2, -vf * 0.014));
+      const tz = Math.max(-0.24, Math.min(0.24, -vr * 0.018));
+      const k = Math.min(1, dt * 7);
+      this.drillTilt.x += (tx - this.drillTilt.x) * k;
+      this.drillTilt.z += (tz - this.drillTilt.z) * k;
+      this.drillMesh.rotation.x = this.drillTilt.x;
+      this.drillMesh.rotation.z = this.drillTilt.z;
+    } else {
+      this.drillMesh.rotation.x *= 0.9;
+      this.drillMesh.rotation.z *= 0.9;
+    }
+    /* foret-vortex : n'apparaÃ®t qu'en forage, tourne (plus vite en surrÃ©gime) */
+    if (this.drillSpinMesh) {
+      const mat = this.drillSpinMesh.material as THREE.MeshStandardMaterial;
+      const want = d.digging ? 0.92 : 0;
+      mat.opacity += (want - mat.opacity) * Math.min(1, dt * 10);
+      if (mat.opacity > 0.02) this.drillSpinMesh.rotation.y += dt * (d.boosting ? 46 : 26);
+    }
+    /* flammes des rÃ©acteurs */
+    for (const fl of this.drillFlames) {
+      fl.visible = this.astro.inDrill && this.thrusting;
+      if (fl.visible) {
+        fl.scale.set(1, 0.7 + Math.random() * (d.boosting ? 0.9 : 0.5), 1);
+        (fl.material as THREE.MeshBasicMaterial).color.setHex(d.boosting ? 0xffc169 : 0x7de0ff);
+      }
+    }
     if (d.digging && this.digTarget) {
       const p = this.digTarget;
       if (Math.random() < dt * 30) this.fx.chunks((p.x + 0.5) * VOX, topYOfRow(p.d) - 1, (p.z + 0.5) * VOX, "#9a938a", 1);
@@ -1345,15 +1428,15 @@ export class Game {
     const a = this.astro;
     this.myRig.group.position.set(a.x, a.y - AH.y, a.z);
     this.myRig.group.rotation.y = this.input.yaw + Math.PI;
-    animAstro(this.myRig, a.anim, Math.hypot(a.vx, a.vz) > 0.6, !!a.jets);
+    animAstro(this.myRig, a.anim, Math.hypot(a.vx, a.vz) > 0.6, !!a.jets, dt);
 
-    /* fusée : fumée post-crash Acte II */
+    /* fusÃ©e : fumÃ©e post-crash Acte II */
     if (S.act >= 2 && !S.launched && this.mode === "play" && Math.random() < dt * 2.2 && this.sim!.repairedCount() < 5) {
       const rx = (ROCK_POS.x + 0.5) * VOX, rz = (ROCK_POS.z + 0.5) * VOX;
       this.fx.puff(rx + (Math.random() - 0.5) * 2, 4 + Math.random() * 5, rz + (Math.random() - 0.5) * 2, "#5f5a66", 1);
     }
 
-    /* bâtiments */
+    /* bÃ¢timents */
     const bkeys = new Set<string>();
     for (const b of S.builds) {
       const k = b.key + "@" + b.x + "," + b.z;
@@ -1394,7 +1477,7 @@ export class Game {
       if (!rkeys.has(n)) { this.scene.scene.remove(o); this.robotMeshes.delete(n); }
     }
 
-    /* créatures (pool par index) */
+    /* crÃ©atures (pool par index) */
     while (this.creatureMeshes.length < S.creatures.length) {
       const o = this.props.makeCreature(S.creatures[this.creatureMeshes.length]?.type ?? "rampant");
       this.scene.scene.add(o);
@@ -1436,7 +1519,7 @@ export class Game {
     }
     this.syncNests();
 
-    /* débris de météorites */
+    /* dÃ©bris de mÃ©tÃ©orites */
     const dkeys = new Set<string>();
     for (const dbr of S.debris) {
       const k = Math.round(dbr.x) + "," + Math.round(dbr.z);
@@ -1452,7 +1535,7 @@ export class Game {
       if (!dkeys.has(k)) { this.scene.scene.remove(o); this.debrisMeshes.delete(k); }
     }
 
-    /* cœur / cristaux : rotation douce */
+    /* cÅ“ur / cristaux : rotation douce */
     for (const [, o] of this.specials) {
       const spin = o.getObjectByName("spin");
       if (spin) spin.rotation.y = time;
@@ -1467,7 +1550,7 @@ export class Game {
       this.specials.keys(), time
     );
 
-    /* tempête : sable balayé en surface */
+    /* tempÃªte : sable balayÃ© en surface */
     if (S.storm && this.mode === "play") {
       const b = this.body();
       if (b.y > -4 && Math.random() < dt * 26) {
@@ -1484,7 +1567,7 @@ export class Game {
       if (r.rig) r.rig.group.visible = !inD;
       if (r.drill) r.drill.visible = inD;
       r.holder.rotation.y = (r.data.yaw ?? 0) + Math.PI;
-      if (r.rig && !inD) animAstro(r.rig, r.data.a ?? 0, true && Math.abs((r.target.x - r.cur.x) + (r.target.z - r.cur.z)) > 0.01, !!r.data.j);
+      if (r.rig && !inD) animAstro(r.rig, r.data.a ?? 0, Math.abs(r.target.x - r.cur.x) + Math.abs(r.target.z - r.cur.z) > 0.01, !!r.data.j, dt);
       if (inD && r.data.dg && Math.random() < dt * 12) {
         this.fx.chunks(r.cur.x, r.cur.y - 1, r.cur.z, "#9a938a", 1);
       }
@@ -1544,20 +1627,48 @@ export class Game {
     this.hurtA = Math.max(0, this.hurtA - dt * 1.2);
     this.hud.update(dt, S, sim.power, sim.daylight, hs, sim.questProg(S.qi));
 
-    /* boussole de retour (équivalent 3D de la minicarte) */
+    /* radar Ã  minerais (instrument de bord de la foreuse, amÃ©liorable) */
+    this.radarT += dt;
+    const radarOn = this.mode === "play" && a.inDrill;
+    if (radarOn && this.radarT > 0.2) {
+      this.radarT = 0;
+      const radiusM = upVal(up, "radar");
+      const Rv = Math.ceil(radiusM / 2);
+      const cx = Math.floor(d.x / 2), cz = Math.floor(d.z / 2);
+      const cd = SURF - 1 - Math.floor(d.y / 2);
+      const blips: typeof this.radarBlips = [];
+      for (let dd2 = Math.max(SURF, cd - Rv); dd2 <= Math.min(S.worldH - 2, cd + Rv) && blips.length < 220; dd2++) {
+        for (let z = Math.max(1, cz - Rv); z <= Math.min(W - 2, cz + Rv) && blips.length < 220; z++) {
+          for (let x = Math.max(1, cx - Rv); x <= Math.min(W - 2, cx + Rv) && blips.length < 220; x++) {
+            const id = tile(S, x, z, dd2);
+            const def = TILES[id];
+            if (!def?.res && id !== 8) continue;
+            const bx = (x + 0.5) * 2 - d.x;
+            const bz = (z + 0.5) * 2 - d.z;
+            const by = (SURF - 1 - dd2) * 2 + 1 - d.y;
+            if (bx * bx + bz * bz + by * by > radiusM * radiusM) continue;
+            blips.push({ dx: bx, dz: bz, dy: by, col: id === 8 ? "#ff9de8" : (RESDEF[def!.res!]?.col ?? "#fff") });
+          }
+        }
+      }
+      this.radarBlips = blips;
+    }
+    this.hud.drawRadar(dt, radarOn, this.radarBlips, upVal(up, "radar"), this.input.yaw);
+
+    /* boussole de retour (Ã©quivalent 3D de la minicarte) */
     let rel: number | null = null, cDist = 0, cSym = "";
     if (this.mode === "play") {
       const bx = (SPAWN_DRILL.x + 0.5) * VOX, bz = (SPAWN_DRILL.z + 0.5) * VOX;
       if (a.inDrill && -d.y > 12) {
         rel = Math.atan2(-(bx - d.x), -(bz - d.z)) - this.input.yaw;
         cDist = Math.hypot(bx - d.x, bz - d.z, d.y);
-        cSym = "⌂";
+        cSym = "âŒ‚";
       } else if (!a.inDrill) {
         const dist2 = Math.hypot(d.x - a.x, d.z - a.z, d.y - a.y);
         if (dist2 > 16) {
           rel = Math.atan2(-(d.x - a.x), -(d.z - a.z)) - this.input.yaw;
           cDist = dist2;
-          cSym = "⛏";
+          cSym = "â›";
         }
       }
     }
@@ -1579,7 +1690,7 @@ export class Game {
     }
   }
 
-  /* ---- décollage ---- */
+  /* ---- dÃ©collage ---- */
   private beginLaunch(act: 1 | 2): void {
     this.mode = "launch";
     this.panels.close();
@@ -1609,8 +1720,8 @@ export class Game {
         au.boom(); au.err();
         this.scene.shake = Math.max(this.scene.shake, 10);
         this.hud.say(pick(
-          "ALERTE ! Surchauffe critique — l'alliage du réacteur ne tient pas ! Coupure moteur… on retombe, pilote. ACCROCHEZ-VOUS !",
-          "ALERT! Critical overheat — the engine alloy is failing! Engine cut… we're falling, pilot. HOLD ON!"), 7);
+          "ALERTE ! Surchauffe critique â€” l'alliage du rÃ©acteur ne tient pas ! Coupure moteurâ€¦ on retombe, pilote. ACCROCHEZ-VOUS !",
+          "ALERT! Critical overheat â€” the engine alloy is failing! Engine cutâ€¦ we're falling, pilot. HOLD ON!"), 7);
       } else {
         this.scene.shake = Math.max(this.scene.shake, T2 < 3 ? 7 : 3);
         if (T2 < 3) L.w = (T2 - 1.8) * 3;
@@ -1638,7 +1749,7 @@ export class Game {
     this.rocketMesh.position.y = 0;
     this.mode = "play";
     this.hud.setVisible(true);
-    /* le resync a rebâti le monde (abysses) */
+    /* le resync a rebÃ¢ti le monde (abysses) */
     this.saveNow();
   }
 

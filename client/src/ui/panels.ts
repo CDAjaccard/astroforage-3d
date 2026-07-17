@@ -279,6 +279,7 @@ export class Panels {
     const v = UPGRADES[key].vals[idx];
     if (key === "foret") return `≤${v.h} ×${v.sp}`;
     if (key === "refroid") return `${v * 2} m`;
+    if (key === "radar") return `${v} m`;
     return String(v);
   }
 

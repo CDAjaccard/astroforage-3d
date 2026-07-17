@@ -12,6 +12,7 @@ Modèles 3D (`tripo_3d`, texturés PBR, GLB) — dans
 | `rampant.glb` | faune (teinté rouge = Traqueur, vert = Cracheur) | f4ef7676-ce69-4b19-afe4-7af403b70aa6 |
 | `cristal.glb` | cristaux des cavernes (récolte à pied) | 20a1686f-ac8a-4834-8a30-e1f5cbfc80ee |
 | `robot.glb` | robots-foreuses autonomes | 3c611ff5-0e29-4762-a540-ab6558268924 |
+| `astronaute.glb` | astronaute chibi **riggé + marche embarquée** (Meshy image_to_3d, concept seedream 79d5c0aa) — teinté par le vestiaire, AnimationMixer | e696ab83-ea8a-49e7-b7e8-6f7a353eaea5 |
 
 Images (`seedream_v4_5`) — dans `steam/store/` :
 
@@ -33,9 +34,10 @@ Coût total : ~28 crédits (5/modèle 3D, 1/image).
    dans `client/src/render/props.ts`. Supprimez un GLB → le jeu tourne
    toujours. Les GLB sont normalisés au chargement (hauteur cible, pied à
    y=0, centrage).
-2. **L'astronaute est volontairement procédural** : le vestiaire (couleurs
-   combinaison/visière/accents, visibles en coop) exige des matériaux
-   recolorables — un GLB texturé ne s'y prête pas (décision n°7).
+2. **L'astronaute** est un GLB stylisé **riggé** (demande joueur) : clonage de
+   squelette par instance, clip de marche piloté par la vitesse, teinte du
+   vestiaire appliquée par lerp sur les matériaux. Le rig procédural d'origine
+   reste le repli si le GLB manque.
 3. **Les bâtiments sont procéduraux** : 12 silhouettes distinctes + icône
    flottante — lisibilité > fidélité photographique, et zéro dépendance à la
    génération.

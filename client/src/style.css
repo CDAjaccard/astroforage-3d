@@ -18,8 +18,8 @@ body {
   color: #dfe8ee;
   user-select: none;
 }
-#app, #app canvas { position: fixed; inset: 0; width: 100%; height: 100%; }
-#app canvas { display: block; }
+#app, #app > canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; }
+#app > canvas#game { display: block; }
 .uilayer { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 5; }
 button { font: inherit; cursor: pointer; }
 .hidden { display: none !important; }
@@ -232,7 +232,10 @@ button { font: inherit; cursor: pointer; }
 .win-stats { color: var(--teal); }
 .bookrow { display: flex; gap: 6px; align-items: center; flex: 1; max-width: 300px; }
 .bookrow select { flex: 1; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
-.radar { display: block; margin-left: auto; margin-bottom: 8px; border-radius: 50%; box-shadow: 0 0 14px rgba(125, 224, 216, 0.18); }
+.radar {
+  position: absolute; top: 58px; right: 14px; width: 96px; height: 96px;
+  border-radius: 50%; box-shadow: 0 0 12px rgba(125, 224, 216, 0.18);
+}
 .compass { font-size: 15px; color: var(--teal); text-shadow: 0 1px 6px #000; margin-bottom: 4px; }
 .compass-arrow { display: inline-block; color: var(--gold); }
 .introfade { position: fixed; inset: 0; background: #000; z-index: 24; pointer-events: none; }

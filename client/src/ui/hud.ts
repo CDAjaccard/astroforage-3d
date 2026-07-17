@@ -86,11 +86,13 @@ export class Hud {
     this.heatEl = el("div", "heat hidden", bl);
     this.heatEl.textContent = "🌡 " + t("heat");
 
-    const br = el("div", "hud-br", this.root);
+    /* radar : petit, en haut à droite sous les pastilles */
     this.radarCv = document.createElement("canvas");
-    this.radarCv.width = this.radarCv.height = 132;
+    this.radarCv.width = this.radarCv.height = 96;
     this.radarCv.className = "radar hidden";
-    br.appendChild(this.radarCv);
+    this.root.appendChild(this.radarCv);
+
+    const br = el("div", "hud-br", this.root);
     this.compassEl = el("div", "compass hidden", br);
     this.depthEl = el("div", "depth", br);
 
@@ -192,9 +194,9 @@ export class Hud {
     ctx.moveTo(C, C - 5); ctx.lineTo(C + 4, C + 4); ctx.lineTo(C - 4, C + 4);
     ctx.fill();
     ctx.fillStyle = "rgba(125,224,216,0.8)";
-    ctx.font = "10px system-ui";
+    ctx.font = "9px system-ui";
     ctx.textAlign = "right";
-    ctx.fillText(radiusM + " m", S - 8, S - 8);
+    ctx.fillText(radiusM + " m", S - 5, S - 5);
   }
 
   /** Boussole de retour : angle relatif à la visée, distance et symbole cible. */

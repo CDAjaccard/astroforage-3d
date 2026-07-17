@@ -20,9 +20,19 @@ import {
 } from "@astroforage/shared";
 
 const PORT = Number(process.env.PORT || DEFAULT_PORT);
-const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
-const CLIENT_DIST = path.resolve(__dirname, "../../client/dist");
-const DATA_DIR = path.resolve(__dirname, "../data/rooms");
+/* Fonctionne en ESM (tsx) ET bundlé en CJS dans Electron (__dirname natif). */
+const BASE_DIR = typeof __dirname !== "undefined"
+  ? __dirname
+  : path.dirname(url.fileURLToPath(import.meta.url));
+/* client construit : repo (dev) ou ressources Electron (app packagée) */
+const CLIENT_DIST = [
+  path.resolve(BASE_DIR, "../../client/dist"),
+  path.resolve(BASE_DIR, "../app-client")
+].find(p => fs.existsSync(path.join(p, "index.html"))) ?? path.resolve(BASE_DIR, "../../client/dist");
+/* données des salles : surchargées par Electron (dossier utilisateur inscriptible) */
+const DATA_DIR = process.env.AF3D_DATA
+  ? path.resolve(process.env.AF3D_DATA)
+  : path.resolve(BASE_DIR, "../data/rooms");
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 /* ---------------- salles ---------------- */

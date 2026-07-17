@@ -2,6 +2,8 @@
 appId: ch.weprocess.astroforage3d
 productName: ASTRO-FORAGE 3D
 copyright: © 2026 Arnaud Jaccard / WeProcess
+# workspaces npm : electron est hissé à la racine, on fige la version ici
+electronVersion: 33.4.11
 
 directories:
   output: release

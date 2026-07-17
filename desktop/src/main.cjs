@@ -53,7 +53,14 @@ function createWindow() {
     win.loadFile(index);
   }
 
-  win.webContents.on("did-finish-load", () => console.log("[app] client chargé :", index));
+  win.webContents.on("did-finish-load", () => {
+    console.log("[app] client chargé :", index);
+    /* témoin de démarrage pour les tests automatisés (AF3D_READY_FILE) */
+    if (process.env.AF3D_READY_FILE) {
+      try { fs.writeFileSync(process.env.AF3D_READY_FILE, index); } catch { /* témoin best-effort */ }
+    }
+  });
+  win.webContents.on("render-process-gone", (_e, d) => console.error("[app] renderer down:", d.reason));
   /* liens externes -> navigateur système */
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("https://")) shell.openExternal(url);
@@ -73,7 +80,13 @@ ipcMain.handle("af3d:host-server", () => {
     : path.join(__dirname, "..", "dist", "server.cjs");
   if (!fs.existsSync(serverJs)) return { ok: false, error: "server.cjs introuvable — lancez npm run bundle-server" };
   try {
-    serverProc = utilityProcess.fork(serverJs, [], { env: { ...process.env, PORT: "8080" } });
+    serverProc = utilityProcess.fork(serverJs, [], {
+      env: {
+        ...process.env,
+        PORT: "8080",
+        AF3D_DATA: path.join(app.getPath("userData"), "rooms")   // dossier inscriptible
+      }
+    });
     serverProc.on("exit", () => { serverProc = null; });
     return { ok: true };
   } catch (e) {

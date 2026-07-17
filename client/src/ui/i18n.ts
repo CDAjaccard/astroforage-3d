@@ -1,0 +1,182 @@
+/* ASTRO·FORAGE 3D — internationalisation FR/EN.
+ * FR est la langue source (textes du jeu original) ; EN pour Steam. */
+import type { Lang } from "@astroforage/shared";
+
+export const STR = {
+  /* menu */
+  play: { fr: "▶ Reprendre", en: "▶ Continue" },
+  newGame: { fr: "★ Nouvelle partie", en: "★ New game" },
+  coop: { fr: "◈ Coop (2-4)", en: "◈ Co-op (2-4)" },
+  saves: { fr: "💾 Parties", en: "💾 Saves" },
+  options: { fr: "⚙ Options", en: "⚙ Settings" },
+  feats: { fr: "★ Exploits", en: "★ Feats" },
+  help: { fr: "? Aide", en: "? Help" },
+  quit: { fr: "⏻ Quitter", en: "⏻ Quit" },
+  subtitle: { fr: "Mission Retour — KEPLER-9b", en: "Mission Homebound — KEPLER-9b" },
+  chooseDiff: { fr: "Choisissez la difficulté", en: "Choose difficulty" },
+  back: { fr: "← Retour", en: "← Back" },
+  resume: { fr: "Reprendre", en: "Resume" },
+  toMenu: { fr: "Menu principal", en: "Main menu" },
+  pause: { fr: "PAUSE", en: "PAUSED" },
+
+  /* coop */
+  coopTitle: { fr: "Coop — monde partagé (2-4 pilotes)", en: "Co-op — shared world (2-4 pilots)" },
+  server: { fr: "Serveur", en: "Server" },
+  room: { fr: "Code de salle", en: "Room code" },
+  nick: { fr: "Pseudo", en: "Nickname" },
+  passOpt: { fr: "Mot de passe (optionnel)", en: "Password (optional)" },
+  join: { fr: "Rejoindre", en: "Join" },
+  publicRooms: { fr: "Salles publiques", en: "Public rooms" },
+  refresh: { fr: "Actualiser", en: "Refresh" },
+  noRooms: { fr: "Aucune salle publique sur ce serveur.", en: "No public room on this server." },
+  connecting: { fr: "Connexion…", en: "Connecting…" },
+  coopHint: { fr: "Le même code de salle = la même planète. Un mot de passe à la création rend la salle privée.", en: "Same room code = same planet. A password at creation makes the room private." },
+  coopLost: { fr: "🔌 Coop interrompu — retour au menu.", en: "🔌 Co-op link lost — back to the menu." },
+  roomFull: { fr: "Salle pleine (4 joueurs max).", en: "Room full (4 players max)." },
+  badPass: { fr: "🔒 Mot de passe requis ou incorrect pour cette salle.", en: "🔒 Password required or incorrect for this room." },
+
+  /* sauvegardes */
+  savesTitle: { fr: "Gestionnaire de parties", en: "Saves manager" },
+  newSlot: { fr: "+ Nouvelle partie", en: "+ New game" },
+  exportSave: { fr: "Exporter", en: "Export" },
+  importSave: { fr: "Importer…", en: "Import…" },
+  deleteSave: { fr: "Supprimer", en: "Delete" },
+  renameSave: { fr: "Renommer", en: "Rename" },
+  emptySaves: { fr: "Aucune sauvegarde. Lancez une nouvelle partie !", en: "No saves yet. Start a new game!" },
+  confirmDel: { fr: "Supprimer cette sauvegarde ?", en: "Delete this save?" },
+  act: { fr: "Acte", en: "Act" },
+
+  /* options */
+  optTitle: { fr: "Options", en: "Settings" },
+  lang: { fr: "Langue", en: "Language" },
+  sens: { fr: "Sensibilité souris", en: "Mouse sensitivity" },
+  invertY: { fr: "Inverser l'axe Y", en: "Invert Y axis" },
+  fov: { fr: "Champ de vision", en: "Field of view" },
+  volume: { fr: "Volume", en: "Volume" },
+  music: { fr: "Musique", en: "Music" },
+  renderDist: { fr: "Distance d'affichage", en: "Render distance" },
+  fullscreen: { fr: "Plein écran", en: "Fullscreen" },
+  suitCol: { fr: "Combinaison", en: "Suit" },
+  visorCol: { fr: "Visière", en: "Visor" },
+  accentCol: { fr: "Accents", en: "Accents" },
+  on: { fr: "Oui", en: "On" },
+  off: { fr: "Non", en: "Off" },
+
+  /* HUD */
+  o2: { fr: "O₂", en: "O₂" },
+  battery: { fr: "Batterie", en: "Battery" },
+  hull: { fr: "Coque", en: "Hull" },
+  cargo: { fr: "Soute", en: "Cargo" },
+  jetpack: { fr: "Jetpack", en: "Jetpack" },
+  depth: { fr: "Profondeur", en: "Depth" },
+  heat: { fr: "SURCHAUFFE !", en: "OVERHEATING!" },
+  power: { fr: "Énergie", en: "Power" },
+  objective: { fr: "Objectif", en: "Objective" },
+  storage: { fr: "Stockage", en: "Storage" },
+  dayLabel: { fr: "Jour", en: "Day" },
+  nightLabel: { fr: "Nuit", en: "Night" },
+  stormLabel: { fr: "Tempête", en: "Storm" },
+  pouch: { fr: "Sacoche", en: "Pouch" },
+
+  /* interactions */
+  enterDrill: { fr: "E · monter dans la foreuse", en: "E · board the drill pod" },
+  exitDrill: { fr: "E · sortir de la foreuse", en: "E · exit the drill pod" },
+  landFirst: { fr: "Posez la foreuse avant d'en sortir !", en: "Land the pod before exiting!" },
+  harvest: { fr: "E · récolter le cristal", en: "E · harvest the crystal" },
+  openRocket: { fr: "E · console de la fusée", en: "E · rocket console" },
+  manage: { fr: "E · gérer :", en: "E · manage:" },
+  buildHere: { fr: "B · construire", en: "B · build" },
+  place: { fr: "Clic · poser — Échap · annuler", en: "Click · place — Esc · cancel" },
+  cantPlace: { fr: "Impossible de construire ici.", en: "Cannot build here." },
+  recallRobot: { fr: "E · rapatrier le robot", en: "E · recall the robot" },
+
+  /* panneaux */
+  build: { fr: "Construire", en: "Build" },
+  stock: { fr: "Stockage de la base", en: "Base storage" },
+  rocket: { fr: "FUSÉE", en: "ROCKET" },
+  workshop: { fr: "Atelier — améliorations", en: "Workshop — upgrades" },
+  labo: { fr: "Labo — recherche", en: "Lab — research" },
+  provide: { fr: "Fournir les pièces", en: "Supply parts" },
+  liftoff: { fr: "DÉCOLLAGE 🚀", en: "LIFT-OFF 🚀" },
+  liftoffLocked: { fr: "Réparez les 5 systèmes", en: "Repair all 5 systems" },
+  demolish: { fr: "🧨 Démolir (60 % rendus)", en: "🧨 Demolish (60% back)" },
+  recipe: { fr: "Recette", en: "Recipe" },
+  running: { fr: "en marche", en: "running" },
+  paused2: { fr: "en pause", en: "paused" },
+  overdrive: { fr: "Surcadence ×1.8", en: "Overdrive ×1.8" },
+  robots: { fr: "Robots", en: "Robots" },
+  buyRobot: { fr: "Assembler un robot", en: "Assemble a robot" },
+  baieUp: { fr: "Agrandir la baie", en: "Expand the bay" },
+  spdUp: { fr: "Forets robotiques +", en: "Robot drills +" },
+  costLbl: { fr: "Coût", en: "Cost" },
+  maxed: { fr: "MAX", en: "MAX" },
+  buy: { fr: "Améliorer", en: "Upgrade" },
+  research: { fr: "Rechercher", en: "Research" },
+  done: { fr: "Acquis", en: "Done" },
+  close: { fr: "Fermer (Échap)", en: "Close (Esc)" },
+
+  /* statuts machines */
+  st_run: { fr: "en marche", en: "running" },
+  st_run_oc: { fr: "en marche · surcadencée", en: "running · overdrive" },
+  st_lowPower: { fr: "↯ insuffisante — ralenti", en: "↯ low — slowed" },
+  st_lowPower_oc: { fr: "↯ insuffisante · surcadencée", en: "↯ low · overdrive" },
+  st_noFuel: { fr: "plus de combustible !", en: "out of fuel!" },
+  st_paused: { fr: "en pause", en: "paused" },
+  st_chooseRecipe: { fr: "choisir une recette", en: "pick a recipe" },
+  st_storeFull: { fr: "stockage plein !", en: "storage full!" },
+  st_waitRes: { fr: "attend des ressources", en: "waiting for resources" },
+  st_storm: { fr: "tempête — aveuglé", en: "storm — blinded" },
+  st_day: { fr: "produit (jour)", en: "producing (day)" },
+  st_night: { fr: "nuit — en veille", en: "night — standby" },
+  st_accu: { fr: "charge", en: "charge" },
+
+  /* jeu */
+  rescued: { fr: "🛟 Rapatriement d'urgence", en: "🛟 Emergency rescue" },
+  lostCargo: { fr: "ressources perdues", en: "resources lost" },
+  reasonBattery: { fr: "batterie à plat", en: "battery dead" },
+  reasonHull: { fr: "coque détruite", en: "hull destroyed" },
+  reasonO2: { fr: "oxygène épuisé", en: "out of oxygen" },
+  reasonFauna: { fr: "assailli par la faune", en: "mauled by wildlife" },
+  cargoFull: { fr: "Soute pleine ! Posez-vous en surface pour décharger.", en: "Cargo full! Land at the surface to unload." },
+  pouchFull: { fr: "Sacoche pleine (4 cristaux) — déposez-les en surface !", en: "Pouch full (4 crystals) — drop them at the surface!" },
+  tooHard: { fr: "Roche trop dure — améliorez le Foret à l'Atelier.", en: "Rock too hard — upgrade the Drill bit at the Workshop." },
+  crystalManual: { fr: "Cristal trop fragile pour le foret — récoltez-le à pied (E) !", en: "Crystal too fragile for the drill — harvest it on foot (E)!" },
+  bedrockMsg: { fr: "Socle de la planète : indestructible.", en: "Planet bedrock: indestructible." },
+  lavaMsg: { fr: "De la lave ! Impossible de forer dedans.", en: "Lava! Impossible to drill through." },
+  o2Low: { fr: "⚠️ Oxygène faible — regagnez la foreuse ou la surface !", en: "⚠️ Low oxygen — get back to the pod or the surface!" },
+  beamOk: { fr: "⬆ Rappel au monte-charge — cargaison sauvegardée.", en: "⬆ Beamed to the freight lift — cargo safe." },
+  beamNoBuild: { fr: "Nécessite un Monte-charge à la base.", en: "Requires a Freight lift at the base." },
+  beamNoEnergy: { fr: "Énergie insuffisante pour le rappel (25↯).", en: "Not enough energy to beam up (25↯)." },
+  beamCd: { fr: "Rappel en recharge.", en: "Beam-up recharging." },
+  beamSurf: { fr: "Déjà en surface.", en: "Already at the surface." },
+  beamDrillOnly: { fr: "Le rappel ne fonctionne qu'à bord de la foreuse.", en: "Beam-up only works aboard the pod." },
+  depositOk: { fr: "📦 ressources déposées", en: "📦 resources deposited" },
+  crystalsDrop: { fr: "💎 cristaux déposés", en: "💎 crystals deposited" },
+  storageFullBuild: { fr: "Stockage plein ! Construisez un Silo.", en: "Storage full! Build a Silo." },
+  boostLow: { fr: "Batterie trop faible pour le surrégime.", en: "Battery too low for overdrive." },
+  saved: { fr: "💾 Partie sauvegardée", en: "💾 Game saved" },
+  loaded: { fr: "💾 Partie chargée — bon retour, pilote !", en: "💾 Game loaded — welcome back, pilot!" },
+  winTitle: { fr: "MISSION ACCOMPLIE", en: "MISSION COMPLETE" },
+  winText: { fr: "KEPLER-9b s'éloigne dans le hublot. Direction : la maison.", en: "KEPLER-9b shrinks in the porthole. Destination: home." },
+  timePlayed: { fr: "Temps de mission", en: "Mission time" },
+  freeplay: { fr: "🌍 Continuer d'explorer", en: "🌍 Keep exploring" },
+  newFeat: { fr: "★ Exploit débloqué :", en: "★ Feat unlocked:" },
+  controlsTitle: { fr: "Contrôles", en: "Controls" },
+  helpControls: {
+    fr: "ZQSD/WASD · se déplacer — Souris · regarder — Espace · sauter / jetpack (maintenir) / poussée foreuse — E · interagir (foreuse, cristaux, bâtiments, fusée) — Clic gauche · forer (en foreuse) — Shift · surrégime — V · caméra 1ʳᵉ/3ᵉ personne — B · construire — I · stockage — R · déployer un robot — T · rappel monte-charge — H · aide — P/Échap · pause",
+    en: "WASD · move — Mouse · look — Space · jump / jetpack (hold) / pod thrust — E · interact (pod, crystals, buildings, rocket) — Left click · drill (in pod) — Shift · overdrive — V · 1st/3rd person camera — B · build — I · storage — R · deploy robot — T · beam-up — H · help — P/Esc · pause"
+  },
+  clickToPlay: { fr: "Cliquez pour verrouiller la souris et jouer", en: "Click to lock the mouse and play" },
+  tipsTitle: { fr: "Astuces de SAM", en: "SAM's tips" }
+} as const;
+
+export type StrKey = keyof typeof STR;
+
+let lang: Lang = (localStorage.getItem("af3d_lang") as Lang) || "fr";
+export function getLang(): Lang { return lang; }
+export function setLang(l: Lang): void { lang = l; localStorage.setItem("af3d_lang", l); }
+export function t(key: StrKey): string { return (STR[key] as any)[lang] ?? (STR[key] as any).fr; }
+/** Choisit la variante localisée d'un objet {nom, nomEn} / {fr, en} / {txt, txtEn}. */
+export function pick(fr: string | undefined, en: string | undefined): string {
+  return (lang === "en" ? en : fr) ?? fr ?? en ?? "";
+}

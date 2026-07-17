@@ -1,0 +1,15 @@
+"DepotBuild"
+{
+	// Dépôt Windows — remplacer 0000001 par le depot id réel (= AppID+1 par défaut)
+	"DepotID" "0000001"
+
+	"FileMapping"
+	{
+		"LocalPath" "*"
+		"DepotPath" "."
+		"recursive" "1"
+	}
+
+	"FileExclusion" "*.pdb"
+	"FileExclusion" "*.map"
+}

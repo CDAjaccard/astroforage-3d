@@ -1,0 +1,26 @@
+# dépendances
+node_modules/
+
+# builds
+client/dist/
+desktop/dist/
+desktop/release/
+server/data/
+*.tsbuildinfo
+
+# environnement / éditeurs
+.env
+.env.*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# journaux
+*.log
+npm-debug.log*
+
+# artefacts steam locaux (jamais de secrets dans le repo)
+steam/output/
+steam/*.log

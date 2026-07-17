@@ -1,0 +1,22 @@
+{
+  "name": "@astroforage/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ASTRO·FORAGE 3D — build de bureau (Steam) : Electron + Steamworks",
+  "main": "src/main.cjs",
+  "scripts": {
+    "bundle-server": "esbuild ../server/src/index.ts --bundle --platform=node --format=cjs --outfile=dist/server.cjs --external:bufferutil --external:utf-8-validate --alias:@astroforage/shared=../shared/src/index.ts",
+    "start": "npm run bundle-server && electron .",
+    "dist:win": "npm run bundle-server && electron-builder --win",
+    "dist:mac": "npm run bundle-server && electron-builder --mac",
+    "typecheck": "node -e \"console.log('desktop: JS pur, pas de typecheck')\""
+  },
+  "optionalDependencies": {
+    "steamworks.js": "^0.4.1"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.24.0"
+  }
+}

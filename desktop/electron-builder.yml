@@ -1,0 +1,45 @@
+# Packaging ASTRO·FORAGE 3D — electron-builder
+appId: ch.weprocess.astroforage3d
+productName: ASTRO-FORAGE 3D
+copyright: © 2026 Arnaud Jaccard / WeProcess
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - src/**
+  - dist/server.cjs
+  - package.json
+  - "!**/*.map"
+
+extraResources:
+  - from: ../client/dist
+    to: app-client
+  - from: dist/server.cjs
+    to: server/server.cjs
+  - from: steam_appid.txt
+    to: ../steam_appid.txt
+
+asar: true
+
+win:
+  target:
+    - nsis
+  icon: build/icon.png
+  artifactName: astroforage-3d-setup-${version}.exe
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: ASTRO-FORAGE 3D
+
+mac:
+  category: public.app-category.games
+  target:
+    - dmg
+    - zip
+  icon: build/icon.png
+  artifactName: astroforage-3d-${version}-mac.${ext}
+  # Signature/notarisation : voir docs/BUILD.md (nécessite un Mac + compte dev Apple)
+  identity: null

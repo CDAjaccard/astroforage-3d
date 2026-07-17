@@ -1,0 +1,31 @@
+{
+  "name": "astroforage-3d",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ASTRO·FORAGE 3D — Mission Retour. Minage, automatisation et survie sur KEPLER-9b, en 3D, solo ou coop (2-4). Cible : Steam (Windows, puis macOS).",
+  "author": "Arnaud Jaccard / WeProcess <ajaccard@weprocess.ch>",
+  "license": "SEE LICENSE IN LICENSE",
+  "engines": {
+    "node": ">=20"
+  },
+  "workspaces": [
+    "shared",
+    "server",
+    "client",
+    "desktop"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@astroforage/client",
+    "dev:server": "npm run dev --workspace=@astroforage/server",
+    "build": "npm run build --workspace=@astroforage/client",
+    "start": "npm run start --workspace=@astroforage/server",
+    "test": "vitest run",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dist:win": "npm run build && npm run dist:win --workspace=@astroforage/desktop",
+    "dist:mac": "npm run build && npm run dist:mac --workspace=@astroforage/desktop"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
+  }
+}

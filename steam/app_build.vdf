@@ -1,0 +1,14 @@
+"AppBuild"
+{
+	// Gabarit SteamPipe — remplacer 0000000 par l'AppID réel (docs/STEAM.md)
+	"AppID" "0000000"
+	"Desc" "ASTRO-FORAGE 3D — build Windows"
+	"ContentRoot" "..\desktop\release\win-unpacked\"
+	"BuildOutput" ".\output\"
+	"SetLive" "beta"   // brancher d'abord sur beta, jamais direct sur default
+
+	"Depots"
+	{
+		"0000001" "depot_windows.vdf"
+	}
+}

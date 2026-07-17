@@ -9,7 +9,7 @@ import { COSMETIC, type Cosmetic } from "@astroforage/shared";
 const loader = new GLTFLoader();
 
 /** Charge un GLB, le normalise (hauteur cible, pied à y=0), sinon null. */
-async function loadGLB(url: string, targetH: number, yawOffset = 0): Promise<THREE.Object3D | null> {
+export async function loadGLB(url: string, targetH: number, yawOffset = 0): Promise<THREE.Object3D | null> {
   try {
     const gltf = await loader.loadAsync(url);
     const obj = gltf.scene;
@@ -121,6 +121,11 @@ function fallbackRobot(): THREE.Object3D {
   led.position.set(0.2, 1.25, 0.15);
   g.add(led);
   return g;
+}
+
+/** Petit cristal décoratif (hologramme du labo, etc.). */
+export function fallbackCrystalSmall(): THREE.Object3D {
+  return fallbackCrystal();
 }
 
 function fallbackCrystal(): THREE.Object3D {

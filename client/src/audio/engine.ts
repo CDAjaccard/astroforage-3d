@@ -8,6 +8,9 @@ let master: GainNode | null = null;
 let digGain: GainNode | null = null;
 let digFilter: BiquadFilterNode | null = null;
 let jetGain: GainNode | null = null;
+let facHumGain: GainNode | null = null;
+let facSteamGain: GainNode | null = null;
+let facReacGain: GainNode | null = null;
 let musicBus: GainNode | null = null;
 let musFilter: BiquadFilterNode | null = null;
 let padGain: GainNode | null = null;
@@ -105,6 +108,55 @@ export function ensure(): boolean {
     jf.connect(jetGain);
     jetGain.connect(master);
     jsrc.start();
+    /* ---- bruits d'usine (bâtiments actifs, dosés par proximité) ---- */
+    /* hum électrique grave (générateur / fonderie / atelier / baie) */
+    const humOsc = ctx.createOscillator();
+    humOsc.type = "sawtooth";
+    humOsc.frequency.value = 54;
+    const humOsc2 = ctx.createOscillator();
+    humOsc2.type = "sine";
+    humOsc2.frequency.value = 108;
+    const humF = ctx.createBiquadFilter();
+    humF.type = "lowpass";
+    humF.frequency.value = 240;
+    facHumGain = ctx.createGain();
+    facHumGain.gain.value = 0;
+    humOsc.connect(humF);
+    humOsc2.connect(humF);
+    humF.connect(facHumGain);
+    facHumGain.connect(master);
+    humOsc.start();
+    humOsc2.start();
+    /* sifflement de vapeur (raffinerie / fonderie) */
+    const stSrc = ctx.createBufferSource();
+    stSrc.buffer = noiseBuffer(1.4);
+    stSrc.loop = true;
+    const stF = ctx.createBiquadFilter();
+    stF.type = "bandpass";
+    stF.frequency.value = 2400;
+    stF.Q.value = 1.2;
+    facSteamGain = ctx.createGain();
+    facSteamGain.gain.value = 0;
+    stSrc.connect(stF);
+    stF.connect(facSteamGain);
+    facSteamGain.connect(master);
+    stSrc.start();
+    /* bourdonnement du réacteur */
+    const reOsc = ctx.createOscillator();
+    reOsc.type = "triangle";
+    reOsc.frequency.value = 82;
+    const reLfo = ctx.createOscillator();
+    reLfo.frequency.value = 5.5;
+    const reLfoG = ctx.createGain();
+    reLfoG.gain.value = 9;
+    reLfo.connect(reLfoG);
+    reLfoG.connect(reOsc.frequency);
+    facReacGain = ctx.createGain();
+    facReacGain.gain.value = 0;
+    reOsc.connect(facReacGain);
+    facReacGain.connect(master);
+    reOsc.start();
+    reLfo.start();
     buildMusic();
     return true;
   } catch {
@@ -188,6 +240,14 @@ export const au = {
   setJet(on: boolean): void {
     if (!ctx || !jetGain) return;
     jetGain.gain.setTargetAtTime(on ? 0.06 : 0, ctx.currentTime, 0.07);
+  },
+  /** Bruits d'usine : intensités 0..1 par famille (déjà dosées par distance). */
+  factory(hum: number, steam: number, reactor: number): void {
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    facHumGain?.gain.setTargetAtTime(Math.min(1, hum) * 0.055, t, 0.4);
+    facSteamGain?.gain.setTargetAtTime(Math.min(1, steam) * 0.035, t, 0.4);
+    facReacGain?.gain.setTargetAtTime(Math.min(1, reactor) * 0.05, t, 0.4);
   },
   blip(f = 880, d = 0.06, v = 0.12): void { tone("square", f, 0, d, v); },
   tink(): void { tone("square", 1500, 900, 0.05, 0.07); },

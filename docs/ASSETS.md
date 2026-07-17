@@ -13,6 +13,7 @@ Modèles 3D (`tripo_3d`, texturés PBR, GLB) — dans
 | `cristal.glb` | cristaux des cavernes (récolte à pied) | 20a1686f-ac8a-4834-8a30-e1f5cbfc80ee |
 | `robot.glb` | robots-foreuses autonomes | 3c611ff5-0e29-4762-a540-ab6558268924 |
 | `astronaute.glb` | astronaute chibi **riggé + marche embarquée** (Meshy image_to_3d, concept seedream 79d5c0aa) — teinté par le vestiaire, AnimationMixer | e696ab83-ea8a-49e7-b7e8-6f7a353eaea5 |
+| `batiments/*.glb` (×12) | les 12 bâtiments de la base, animés par `render/buildings.ts` : fumée/vapeur, lueurs pulsées (+ vraies lumières pour fonderie/monte-charge/labo/réacteur), éléments mobiles (plateforme du monte-charge, hologramme du labo, anneau-sonar du scanner, ventilateur du générateur, panneau solaire qui suit le soleil) et **bruits d'usine** par proximité (hum/vapeur/réacteur) | dc11640b, e8d17493, 8f559d4a, 0449f636, 1dfd0940, 1475a5be, 296b8698, a775b735, 687c74a8, 101156fc, adef8148, 80dc9751 |
 
 Images (`seedream_v4_5`) — dans `steam/store/` :
 

@@ -5,7 +5,7 @@
  * ressources que dans l'original. Génération 100 % déterministe par seed. */
 
 import { mulberry32, type Rng } from "./rng.js";
-import { W, H0, H2, SURF, ORE, isRockId } from "./data.js";
+import { W, H0, H2, SURF, ORE, isRockId, ROCK_POS } from "./data.js";
 import type { Nest, SharedState } from "./types.js";
 
 export const CRUST_END = 178; // croûte abyssale (dureté 5) puis roche du noyau (dureté 7)
@@ -230,7 +230,53 @@ export function genWorld(seed: number): GenResult {
     }
   }
 
+  /* relief : ondulations douces (0..2 voxels de régolithe) HORS de la zone de
+   * base, qui reste parfaitement plate pour la construction. Le jetpack sert
+   * à grimper — comme dans l'original. Déterministe par seed. */
+  {
+    const Rh = mulberry32((seed ^ 0x51ab7e) | 0);
+    const gsz = 10; // taille de cellule du bruit de valeur
+    const gn = Math.ceil(W / gsz) + 2;
+    const lattice = new Float32Array(gn * gn);
+    for (let i = 0; i < lattice.length; i++) lattice[i] = Rh();
+    const val = (x: number, z: number): number => {
+      const gx = x / gsz, gz = z / gsz;
+      const x0 = Math.floor(gx), z0 = Math.floor(gz);
+      const fx = gx - x0, fz = gz - z0;
+      const sx = fx * fx * (3 - 2 * fx), sz = fz * fz * (3 - 2 * fz);
+      const a = lattice[z0 * gn + x0], b = lattice[z0 * gn + x0 + 1];
+      const c = lattice[(z0 + 1) * gn + x0], d2 = lattice[(z0 + 1) * gn + x0 + 1];
+      return a + (b - a) * sx + (c - a) * sz + (a - b - c + d2) * sx * sz;
+    };
+    for (let z = 1; z < W - 1; z++) {
+      for (let x = 1; x < W - 1; x++) {
+        const dRock = Math.hypot(x + 0.5 - (ROCK_POS.x + 0.5), z + 0.5 - (ROCK_POS.z + 0.5));
+        if (dRock < FLAT_R) continue;
+        const n = val(x, z);
+        /* fondu en bordure de zone plate pour éviter une falaise */
+        const edge = Math.min(1, (dRock - FLAT_R) / 6);
+        const h = n > 0.82 ? 2 : n > 0.58 ? 1 : 0;
+        const hh = Math.min(h, edge >= 1 ? 2 : 1);
+        for (let k = 1; k <= hh; k++) {
+          const d3 = SURF - k;
+          if (d3 >= 1) grid[idx(x, z, d3)] = 1;
+        }
+      }
+    }
+  }
+
   return { grid, nests };
+}
+
+/** Rayon (voxels, depuis la fusée) de la zone de base parfaitement plate. */
+export const FLAT_R = 32;
+
+/** Y-monde du sommet solide d'une colonne de surface (pose des débris, props). */
+export function surfaceTopY(S: { grid: Uint8Array; worldH: number }, vx: number, vz: number): number {
+  for (let d = SURF - 2; d <= SURF + 2; d++) {
+    if (!isPassableId(tile(S, vx, vz, d))) return topYOfRow(d);
+  }
+  return 0;
 }
 
 /* ---- Acte II : le crash fissure le socle et ouvre les abysses ---- */

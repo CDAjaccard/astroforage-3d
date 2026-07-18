@@ -5,7 +5,7 @@ import * as THREE from "three";
 import {
   W, SURF, O2MAX, POUCH, DAYLEN, BEAM_COST, BEAM_CD, QUESTS, FEATS, BUILDINGS,
   RESDEF, T as TILES, DIFFS, ROCK_POS, SPAWN_DRILL, SPAWN_ASTRO, DECOR,
-  tile, isPassableId, rowOfY, topYOfRow, canPlaceBuilding,
+  tile, isPassableId, rowOfY, topYOfRow, canPlaceBuilding, surfaceTopY, mulberry32,
   type DiffKey, type GameEvent, type Snapshot, type WirePlayer, SEND_HZ
 } from "@astroforage/shared";
 import { SceneMgr } from "../render/sceneMgr.js";
@@ -210,6 +210,7 @@ export class Game {
     for (const [, o] of this.debrisMeshes) this.scene.scene.remove(o);
     for (const [, o] of this.specials) this.scene.scene.remove(o);
     for (const [, r] of this.remotes) this.scene.scene.remove(r.holder);
+    if (this.rocksMesh) { this.scene.scene.remove(this.rocksMesh); this.rocksMesh.dispose(); this.rocksMesh = null; }
     this.buildingVisuals.clear(); this.robotMeshes.clear(); this.creatureMeshes = [];
     this.projMeshes = []; this.nestMeshes.clear(); this.debrisMeshes.clear();
     this.specials.clear(); this.remotes.clear();
@@ -233,6 +234,46 @@ export class Game {
     this.myRig = this.props.makeAstro(settings.cosmetic);
     this.scene.scene.add(this.myRig.group);
     this.syncNests();
+    this.scatterRocks();
+  }
+
+  /** Rochers décoratifs épars (déterministes par seed), posés sur le relief. */
+  private rocksMesh: THREE.InstancedMesh | null = null;
+  private scatterRocks(): void {
+    if (this.rocksMesh) {
+      this.scene.scene.remove(this.rocksMesh);
+      this.rocksMesh.dispose();
+    }
+    const S = this.sim!.S;
+    const R = mulberry32((S.seed ^ 0x0c0c5) | 0);
+    const N = 150;
+    const geo = new THREE.DodecahedronGeometry(0.55, 0);
+    const mat = new THREE.MeshLambertMaterial({ color: 0x6e4a34 });
+    const inst = new THREE.InstancedMesh(geo, mat, N);
+    const m4 = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const eu = new THREE.Euler();
+    let placed = 0;
+    for (let i = 0; i < N * 3 && placed < N; i++) {
+      const vx = 2 + Math.floor(R() * (W - 4));
+      const vz = 2 + Math.floor(R() * (W - 4));
+      const dRock = Math.hypot(vx - ROCK_POS.x, vz - ROCK_POS.z);
+      if (dRock < 18) continue;   // pas dans le camp
+      const y = surfaceTopY(S, vx, vz);
+      const s = 0.4 + R() * 1.1;
+      eu.set(R() * 3, R() * 6.28, R() * 3);
+      q.setFromEuler(eu);
+      m4.compose(
+        new THREE.Vector3((vx + 0.2 + R() * 0.6) * 2, y + s * 0.25, (vz + 0.2 + R() * 0.6) * 2),
+        q,
+        new THREE.Vector3(s, s * (0.6 + R() * 0.5), s)
+      );
+      inst.setMatrixAt(placed++, m4);
+    }
+    inst.count = placed;
+    inst.instanceMatrix.needsUpdate = true;
+    this.scene.scene.add(inst);
+    this.rocksMesh = inst;
   }
 
   private resetAvatars(av?: SlotData["avatar"]): void {
@@ -1560,7 +1601,7 @@ export class Game {
       dkeys.add(k);
       if (!this.debrisMeshes.has(k)) {
         const o = makeDebris();
-        o.position.set(dbr.x * VOX, 0, dbr.z * VOX);
+        o.position.set(dbr.x * VOX, surfaceTopY(S, Math.floor(dbr.x), Math.floor(dbr.z)), dbr.z * VOX);
         this.scene.scene.add(o);
         this.debrisMeshes.set(k, o);
       }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { genWorld, deepenWorld, seismicVeins, tile, W, H0, H2, SURF, ORE, GameSim, isRockId } from "../src/index.js";
+import { genWorld, deepenWorld, seismicVeins, tile, W, H0, H2, SURF, ORE, GameSim, isRockId, ROCK_POS, FLAT_R, surfaceTopY } from "../src/index.js";
 
 describe("génération du monde", () => {
   it("est déterministe pour une même seed", () => {
@@ -16,18 +16,25 @@ describe("génération du monde", () => {
     expect(Buffer.from(a.grid).equals(Buffer.from(b.grid))).toBe(false);
   });
 
-  it("a une surface solide, un ciel libre et un socle au fond", () => {
+  it("a une surface solide, une zone de base plate et un socle au fond", () => {
     const { grid } = genWorld(777);
     const S = { grid, worldH: H0 };
+    let mounds = 0;
     for (let z = 1; z < W - 1; z++) {
       for (let x = 1; x < W - 1; x++) {
-        expect(tile(S, x, z, SURF)).toBeGreaterThan(0);       // sol plein
-        expect(tile(S, x, z, SURF - 1)).toBe(0);              // ciel
+        expect(tile(S, x, z, SURF)).toBeGreaterThan(0);       // sol plein partout
         expect(tile(S, x, z, H0 - 1)).toBe(9);                // socle
+        const above = tile(S, x, z, SURF - 1);
+        const dRock = Math.hypot(x + 0.5 - (ROCK_POS.x + 0.5), z + 0.5 - (ROCK_POS.z + 0.5));
+        if (dRock < FLAT_R) expect(above).toBe(0);            // zone de base : plate
+        else if (above !== 0) { expect(above).toBe(1); mounds++; }  // relief : régolithe
       }
     }
+    expect(mounds).toBeGreaterThan(30);                        // le relief existe
     expect(tile(S, 10, 10, -5)).toBe(0);                       // au-dessus du monde : air
     expect(tile(S, 0, 10, 50)).toBe(9);                        // bord : socle
+    /* surfaceTopY : plat au camp, élevé sur un monticule */
+    expect(surfaceTopY(S, ROCK_POS.x + 2, ROCK_POS.z, )).toBe(0);
   });
 
   it("contient les ressources clés en quantités jouables", () => {

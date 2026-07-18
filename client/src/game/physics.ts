@@ -7,6 +7,12 @@ const VOX = 2;
 export interface Body { x: number; y: number; z: number; vx: number; vy: number; vz: number }
 interface GridRef { grid: Uint8Array; worldH: number }
 
+/** Boîte de collision statique (bâtiment, fusée, foreuse garée). */
+export interface StaticBox { x0: number; y0: number; z0: number; x1: number; y1: number; z1: number }
+let statics: StaticBox[] = [];
+/** Liste rebâtie chaque frame par le jeu (bâtiments posés/détruits, etc.). */
+export function setStaticBoxes(list: StaticBox[]): void { statics = list; }
+
 function solidBox(S: GridRef, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): boolean {
   const vx0 = Math.floor(x0 / VOX), vx1 = Math.floor(x1 / VOX);
   const vz0 = Math.floor(z0 / VOX), vz1 = Math.floor(z1 / VOX);
@@ -26,43 +32,60 @@ export function moveAABB(S: GridRef, E: Body, hx: number, hy: number, hz: number
   const r: MoveResult = { grounded: false, landV: 0, hitHead: false, hitWall: false };
 
   /* X */
-  let nx = E.x + E.vx * dt;
-  if (E.vx !== 0) {
-    const lead = nx + Math.sign(E.vx) * hx;
-    if (solidBox(S, E.vx > 0 ? lead - 0.001 : lead, E.y - hy + eps, E.z - hz + eps, E.vx > 0 ? lead : lead + 0.001, E.y + hy - eps, E.z + hz - eps)) {
+  const mvx = E.vx;
+  let nx = E.x + mvx * dt;
+  if (mvx !== 0) {
+    const lead = nx + Math.sign(mvx) * hx;
+    if (solidBox(S, mvx > 0 ? lead - 0.001 : lead, E.y - hy + eps, E.z - hz + eps, mvx > 0 ? lead : lead + 0.001, E.y + hy - eps, E.z + hz - eps)) {
       const cell = Math.floor(lead / VOX);
-      nx = E.vx > 0 ? cell * VOX - hx - 0.001 : (cell + 1) * VOX + hx + 0.001;
+      nx = mvx > 0 ? cell * VOX - hx - 0.001 : (cell + 1) * VOX + hx + 0.001;
       E.vx = 0;
       r.hitWall = true;
+    }
+    /* boîtes statiques : on bloque en franchissant la face (jamais piégé si
+     * déjà en chevauchement — on peut toujours ressortir) */
+    for (const B of statics) {
+      if (E.y - hy + eps < B.y1 && E.y + hy - eps > B.y0 && E.z - hz + eps < B.z1 && E.z + hz - eps > B.z0) {
+        if (mvx > 0 && E.x + hx <= B.x0 + 0.01 && nx + hx > B.x0) { nx = B.x0 - hx - 0.001; E.vx = 0; r.hitWall = true; }
+        else if (mvx < 0 && E.x - hx >= B.x1 - 0.01 && nx - hx < B.x1) { nx = B.x1 + hx + 0.001; E.vx = 0; r.hitWall = true; }
+      }
     }
   }
   E.x = Math.max(VOX + hx + 0.01, Math.min((W - 1) * VOX - hx - 0.01, nx));
 
   /* Z */
-  let nz = E.z + E.vz * dt;
-  if (E.vz !== 0) {
-    const lead = nz + Math.sign(E.vz) * hz;
-    if (solidBox(S, E.x - hx + eps, E.y - hy + eps, E.vz > 0 ? lead - 0.001 : lead, E.x + hx - eps, E.y + hy - eps, E.vz > 0 ? lead : lead + 0.001)) {
+  const mvz = E.vz;
+  let nz = E.z + mvz * dt;
+  if (mvz !== 0) {
+    const lead = nz + Math.sign(mvz) * hz;
+    if (solidBox(S, E.x - hx + eps, E.y - hy + eps, mvz > 0 ? lead - 0.001 : lead, E.x + hx - eps, E.y + hy - eps, mvz > 0 ? lead : lead + 0.001)) {
       const cell = Math.floor(lead / VOX);
-      nz = E.vz > 0 ? cell * VOX - hz - 0.001 : (cell + 1) * VOX + hz + 0.001;
+      nz = mvz > 0 ? cell * VOX - hz - 0.001 : (cell + 1) * VOX + hz + 0.001;
       E.vz = 0;
       r.hitWall = true;
+    }
+    for (const B of statics) {
+      if (E.y - hy + eps < B.y1 && E.y + hy - eps > B.y0 && E.x - hx + eps < B.x1 && E.x + hx - eps > B.x0) {
+        if (mvz > 0 && E.z + hz <= B.z0 + 0.01 && nz + hz > B.z0) { nz = B.z0 - hz - 0.001; E.vz = 0; r.hitWall = true; }
+        else if (mvz < 0 && E.z - hz >= B.z1 - 0.01 && nz - hz < B.z1) { nz = B.z1 + hz + 0.001; E.vz = 0; r.hitWall = true; }
+      }
     }
   }
   E.z = Math.max(VOX + hz + 0.01, Math.min((W - 1) * VOX - hz - 0.01, nz));
 
   /* Y */
-  let ny = E.y + E.vy * dt;
-  if (E.vy < 0) {
+  const mvy = E.vy;
+  let ny = E.y + mvy * dt;
+  if (mvy < 0) {
     const lead = ny - hy;
     if (solidBox(S, E.x - hx + eps, lead, E.z - hz + eps, E.x + hx - eps, lead + 0.001, E.z + hz - eps)) {
       const cell = Math.floor(lead / VOX);
       ny = (cell + 1) * VOX + hy + 0.001;
-      r.landV = -E.vy;
+      r.landV = -mvy;
       E.vy = 0;
       r.grounded = true;
     }
-  } else if (E.vy > 0) {
+  } else if (mvy > 0) {
     const lead = ny + hy;
     if (solidBox(S, E.x - hx + eps, lead - 0.001, E.z - hz + eps, E.x + hx - eps, lead, E.z + hz - eps)) {
       const cell = Math.floor(lead / VOX);
@@ -71,10 +94,28 @@ export function moveAABB(S: GridRef, E: Body, hx: number, hy: number, hz: number
       r.hitHead = true;
     }
   }
+  /* boîtes statiques : atterrir dessus / se cogner dessous */
+  if (mvy !== 0) {
+    for (const B of statics) {
+      if (E.x - hx + eps < B.x1 && E.x + hx - eps > B.x0 && E.z - hz + eps < B.z1 && E.z + hz - eps > B.z0) {
+        if (mvy < 0 && E.y - hy >= B.y1 - 0.01 && ny - hy < B.y1) {
+          ny = B.y1 + hy + 0.001; r.landV = Math.max(r.landV, -mvy); E.vy = 0; r.grounded = true;
+        } else if (mvy > 0 && E.y + hy <= B.y0 + 0.01 && ny + hy > B.y0) {
+          ny = B.y0 - hy - 0.001; E.vy = 0; r.hitHead = true;
+        }
+      }
+    }
+  }
   E.y = ny;
   /* au sol si un solide affleure juste sous les pieds */
   if (!r.grounded && E.vy >= -0.01) {
     if (solidBox(S, E.x - hx + eps, E.y - hy - 0.06, E.z - hz + eps, E.x + hx - eps, E.y - hy - 0.02, E.z + hz - eps)) r.grounded = true;
+    else {
+      for (const B of statics) {
+        if (E.x - hx + eps < B.x1 && E.x + hx - eps > B.x0 && E.z - hz + eps < B.z1 && E.z + hz - eps > B.z0
+            && E.y - hy - 0.06 < B.y1 && E.y - hy - 0.02 > B.y0) { r.grounded = true; break; }
+      }
+    }
   }
   return r;
 }

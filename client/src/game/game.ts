@@ -21,10 +21,10 @@ import { Input } from "../input.js";
 import { au } from "../audio/engine.js";
 import { settings, saveSettings } from "../config.js";
 import { LocalSim, NetSim, foretStats, upVal, dayPhase, type SimPort } from "./simPort.js";
-import { moveAABB, touchesLava, raycastVoxel } from "./physics.js";
+import { moveAABB, touchesLava, raycastVoxel, setStaticBoxes, type StaticBox } from "./physics.js";
 import { Interior, ROOM, makeDecoMesh } from "./interior.js";
 import { Overlays } from "../render/overlays.js";
-import { BuildingVisual, loadBuildingTemplates, type BuildingCtx } from "../render/buildings.js";
+import { BuildingVisual, loadBuildingTemplates, buildingHeight, type BuildingCtx } from "../render/buildings.js";
 import {
   newSlot, saveSlot, loadSlot, curSlotId, setCurSlot, loadFeats, saveFeats, saveBest,
   type SlotData
@@ -577,6 +577,37 @@ export class Game {
     }
   }
 
+  /* demi-largeurs de collision par bâtiment (silhouettes : poteau fin pour
+   * le solaire et le scanner — on passe sous le panneau / l'antenne) */
+  private static BUILD_HW: Record<string, number> = {
+    generateur: 1.15, fonderie: 1.35, atelier: 1.45, solaire: 0.35, accu: 1.05,
+    silo: 1.2, raffinerie: 1.05, montecharge: 1.1, baie: 1.35, labo: 1.45,
+    reacteur: 1.3, scanner: 0.4
+  };
+
+  /** Boîtes de collision des constructions et objets (rebâties chaque frame :
+   * une poignée d'AABB — bâtiments, fusée posée, foreuse quand on est à pied). */
+  private syncStaticBoxes(): void {
+    const S = this.sim?.S;
+    if (!S || this.mode === "menu") { setStaticBoxes([]); return; }
+    const list: StaticBox[] = [];
+    for (const b of S.builds) {
+      const hw = Game.BUILD_HW[b.key] ?? 1.1;
+      const cx = b.x * VOX, cz = b.z * VOX;
+      list.push({ x0: cx - hw, y0: 0, z0: cz - hw, x1: cx + hw, y1: buildingHeight(b.key), z1: cz + hw });
+    }
+    if (!S.launched && this.mode !== "launch") {
+      const rx = (ROCK_POS.x + 0.5) * VOX, rz = (ROCK_POS.z + 0.5) * VOX;
+      list.push({ x0: rx - 1.9, y0: 0, z0: rz - 1.9, x1: rx + 1.9, y1: 10.5, z1: rz + 1.9 });
+    }
+    /* la foreuse garée bloque l'astronaute à pied (jamais son propre pilote) */
+    if (!this.astro.inDrill && this.mode === "play") {
+      const d = this.drill;
+      list.push({ x0: d.x - 1.0, y0: d.y - DH.y, z0: d.z - 1.0, x1: d.x + 1.0, y1: d.y + DH.y + 0.3, z1: d.z + 1.0 });
+    }
+    setStaticBoxes(list);
+  }
+
   /** Vue cockpit : le capot et le nez de la VRAIE foreuse (asset GLB, repli
    * procédural sinon) sous la caméra, nez droit devant. Le vortex de forage
    * strié — identique à la vue TPS — apparaît et tourne quand on creuse. */
@@ -1088,6 +1119,8 @@ export class Game {
       au.engine(false, 0, false);
       au.thruster(false, false);
     }
+    /* collision des constructions et objets (liste d'AABB, coût négligeable) */
+    this.syncStaticBoxes();
 
     if (this.mode === "menu" || !sim) {
       this.scene.updateEnv(0.85, 0, 0, performance.now() / 1000, 0.3);

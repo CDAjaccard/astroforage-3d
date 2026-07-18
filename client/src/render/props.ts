@@ -469,7 +469,7 @@ export class Props {
     /* foreuse : le GLB généré a le nez vers -X ; on le tourne pour que le nez
      * pointe -Z (convention du jeu : « avant » = direction de la caméra) */
     const [drill, rocket, robot, crystal, creature] = await Promise.all([
-      loadGLB(base + "foreuse.glb", 1.9, -Math.PI / 2),
+      loadGLB(base + "foreuse.glb", 1.9, Math.PI / 2),
       loadGLB(base + "fusee.glb", 11),
       loadGLB(base + "robot.glb", 1.1),
       loadGLB(base + "cristal.glb", 1.3),

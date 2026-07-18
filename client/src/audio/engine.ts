@@ -164,23 +164,36 @@ export function ensure(): boolean {
   }
 }
 
-function tone(type: OscillatorType, f0: number, f1: number, dur: number, vol: number, delay = 0): void {
+/** Sortie d'un SFX : pan stéréo optionnel (-1..1). */
+function out(node: AudioNode, pan: number): void {
+  if (pan && ctx && "createStereoPanner" in ctx) {
+    const p = ctx.createStereoPanner();
+    p.pan.value = Math.max(-1, Math.min(1, pan));
+    node.connect(p);
+    p.connect(master!);
+  } else {
+    node.connect(master!);
+  }
+}
+
+function tone(type: OscillatorType, f0: number, f1: number, dur: number, vol: number, delay = 0, pan = 0, vary = 0): void {
   if (!ctx || !master) return;
   const t0 = ctx.currentTime + delay;
+  const jitter = vary ? 1 + (Math.random() - 0.5) * vary : 1;
   const o = ctx.createOscillator();
   const g = ctx.createGain();
   o.type = type;
-  o.frequency.setValueAtTime(f0, t0);
-  if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t0 + dur);
+  o.frequency.setValueAtTime(f0 * jitter, t0);
+  if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(1, f1 * jitter), t0 + dur);
   g.gain.setValueAtTime(vol, t0);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   o.connect(g);
-  g.connect(master);
+  out(g, pan);
   o.start(t0);
   o.stop(t0 + dur + 0.03);
 }
 
-function burst(dur: number, vol: number, fc: number, type: BiquadFilterType = "lowpass", delay = 0): void {
+function burst(dur: number, vol: number, fc: number, type: BiquadFilterType = "lowpass", delay = 0, pan = 0, vary = 0.12): void {
   if (!ctx || !master) return;
   const t0 = ctx.currentTime + delay;
   const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
@@ -191,12 +204,12 @@ function burst(dur: number, vol: number, fc: number, type: BiquadFilterType = "l
   s.buffer = buf;
   const f = ctx.createBiquadFilter();
   f.type = type;
-  f.frequency.value = fc;
+  f.frequency.value = fc * (1 + (Math.random() - 0.5) * vary);
   const g = ctx.createGain();
   g.gain.value = vol;
   s.connect(f);
   f.connect(g);
-  g.connect(master);
+  out(g, pan);
   s.start(t0);
 }
 
@@ -250,13 +263,14 @@ export const au = {
     facReacGain?.gain.setTargetAtTime(Math.min(1, reactor) * 0.05, t, 0.4);
   },
   blip(f = 880, d = 0.06, v = 0.12): void { tone("square", f, 0, d, v); },
-  tink(): void { tone("square", 1500, 900, 0.05, 0.07); },
-  pickup(): void { tone("square", 620, 0, 0.05, 0.1); tone("square", 930, 0, 0.07, 0.1, 0.05); },
+  tink(): void { tone("square", 1500, 900, 0.05, 0.07, 0, 0, 0.18); },
+  pickup(): void { tone("square", 620, 0, 0.05, 0.1, 0, 0, 0.08); tone("square", 930, 0, 0.07, 0.1, 0.05, 0, 0.08); },
   cash(): void { tone("triangle", 523, 0, 0.09, 0.14); tone("triangle", 659, 0, 0.09, 0.14, 0.07); tone("triangle", 784, 0, 0.13, 0.14, 0.14); },
-  thud(dist = 0): void { const a = att(dist) || 1; burst(0.12, 0.3 * a, 150); tone("triangle", 95, 42, 0.13, 0.2 * a); },
-  boom(dist = 0): void { const a = Math.max(0.15, att(dist, 60)); burst(0.5, 0.5 * a, 320); tone("sawtooth", 130, 32, 0.45, 0.22 * a); },
+  thud(dist = 0, pan = 0): void { const a = att(dist) || 1; burst(0.12, 0.3 * a, 150, "lowpass", 0, pan); tone("triangle", 95, 42, 0.13, 0.2 * a, 0, pan, 0.15); },
+  boom(dist = 0, pan = 0): void { const a = Math.max(0.15, att(dist, 60)); burst(0.5, 0.5 * a, 320, "lowpass", 0, pan); tone("sawtooth", 130, 32, 0.45, 0.22 * a, 0, pan, 0.12); },
   err(): void { tone("square", 140, 0, 0.09, 0.14); tone("square", 110, 0, 0.11, 0.14, 0.1); },
-  build(): void { burst(0.09, 0.25, 220); tone("square", 1050, 0, 0.08, 0.1, 0.06); },
-  sizzle(): void { burst(0.15, 0.12, 3200, "highpass"); },
+  build(): void { burst(0.09, 0.25, 220); tone("square", 1050, 0, 0.08, 0.1, 0.06, 0, 0.1); },
+  sizzle(pan = 0): void { burst(0.15, 0.12, 3200, "highpass", 0, pan); },
+  hit(dist = 0, pan = 0): void { const a = att(dist) || 1; burst(0.07, 0.2 * a, 900, "bandpass", 0, pan, 0.3); },
   launch(): void { burst(4, 0.5, 420); tone("sawtooth", 52, 36, 4, 0.22); }
 };

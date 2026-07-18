@@ -13,6 +13,10 @@ export interface Settings {
   nick: string;
   /** carnet de serveurs coop */
   servers: Array<{ name: string; url: string }>;
+  /** résolution interne : 0 = auto (ratio natif ≤2), sinon facteur fixe */
+  renderScale: number;
+  /** densité de particules (0.5 léger · 1 normal) */
+  fxDensity: number;
 }
 
 const KEY = "af3d_settings";
@@ -33,7 +37,9 @@ export const settings: Settings = (() => {
     cosmetic: { suit: 0, visor: 0, accent: 0 },
     serverUrl: defaultServerUrl(),
     nick: "",
-    servers: []
+    servers: [],
+    renderScale: 0,
+    fxDensity: 1
   };
   try {
     const raw = localStorage.getItem(KEY);

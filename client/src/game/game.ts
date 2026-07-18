@@ -412,6 +412,7 @@ export class Game {
   }
 
   applySettings(): void {
+    this.scene.applyRenderScale();
     /* recrée le rig local avec les nouvelles couleurs */
     if (this.myRig) {
       this.scene.scene.remove(this.myRig.group);
@@ -814,15 +815,26 @@ export class Game {
         case "boom": {
           this.fx.boom(e.x, e.y, e.z);
           const b = this.body();
-          au.boom(Math.hypot(b.x - e.x, b.y - e.y, b.z - e.z));
+          au.boom(Math.hypot(b.x - e.x, b.y - e.y, b.z - e.z), this.panOf(e.x, e.z));
           this.scene.shake = Math.max(this.scene.shake, 6);
           break;
         }
         case "questDone": au.cash(); break;
-        case "mobkill": this.fx.chunks(e.x, e.y, e.z, e.body, 10); this.fx.chunks(e.x, e.y, e.z, "#7de0d8", 6); au.boom(14); break;
-        case "nestkill": this.fx.boom(e.x, e.y, e.z); this.scene.shake = Math.max(this.scene.shake, 10); au.boom(6); this.syncNests(); break;
+        case "mobkill": {
+          this.fx.chunks(e.x, e.y, e.z, e.body, 10);
+          this.fx.chunks(e.x, e.y, e.z, "#7de0d8", 6);
+          const b = this.body();
+          au.boom(Math.hypot(b.x - e.x, b.y - e.y, b.z - e.z) + 8, this.panOf(e.x, e.z));
+          break;
+        }
+        case "nestkill": this.fx.boom(e.x, e.y, e.z); this.scene.shake = Math.max(this.scene.shake, 10); au.boom(6, this.panOf(e.x, e.z)); this.syncNests(); break;
         case "sonic": this.fx.sonic(e.x, e.y, e.z); au.blip(300, 0.18, 0.12); break;
-        case "hitfx": this.fx.chunks(e.x, e.y, e.z, "#7dff8a", 5); break;
+        case "hitfx": {
+          this.fx.chunks(e.x, e.y, e.z, "#7dff8a", 5);
+          const b = this.body();
+          au.hit(Math.hypot(b.x - e.x, b.y - e.y, b.z - e.z), this.panOf(e.x, e.z));
+          break;
+        }
         case "quake": this.scene.shake = Math.max(this.scene.shake, 2.5); au.thud(); break;
         case "meteor": break; // le boom d'impact suit
         case "storm": break;  // reflété par S.storm
@@ -971,6 +983,16 @@ export class Game {
 
   private body(): { x: number; y: number; z: number } {
     return this.astro.inDrill ? this.drill : this.astro;
+  }
+
+  /** Panoramique stéréo (-1..1) d'un point-monde relatif à la visée. */
+  private panOf(x: number, z: number): number {
+    const b = this.body();
+    const dx = x - b.x, dz = z - b.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist < 1.5) return 0;
+    const ang = Math.atan2(-dx, -dz) - this.input.yaw;
+    return Math.max(-1, Math.min(1, Math.sin(ang) * -0.85));
   }
 
   update(dt: number): void {

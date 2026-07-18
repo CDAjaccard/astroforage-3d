@@ -47,9 +47,16 @@ export class SceneMgr {
 
   resize(): void {
     const w = window.innerWidth, h = window.innerHeight;
+    this.applyRenderScale();
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+  }
+
+  /** Résolution interne (option graphique). */
+  applyRenderScale(): void {
+    const s = settings.renderScale > 0 ? settings.renderScale : Math.min(devicePixelRatio, 2);
+    this.renderer.setPixelRatio(s);
   }
 
   /** Ambiance selon la lumière du jour, la profondeur (m) et la tempête. */

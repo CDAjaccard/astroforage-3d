@@ -239,6 +239,15 @@ export class Menus {
       <label>${t("volume")}<input id="o-vol" type="range" min="0" max="1" step="0.05" value="${settings.volume}"></label>
       <label>${t("music")}<input id="o-mus" type="checkbox" ${settings.music ? "checked" : ""}></label>
       <label>${t("renderDist")}<input id="o-dist" type="range" min="60" max="180" step="10" value="${settings.renderDist}"></label>
+      <label>${t("renderScale")}<select id="o-rs">
+        <option value="0" ${settings.renderScale === 0 ? "selected" : ""}>${t("rsAuto")}</option>
+        <option value="1" ${settings.renderScale === 1 ? "selected" : ""}>1×</option>
+        <option value="0.75" ${settings.renderScale === 0.75 ? "selected" : ""}>${t("rsPerf")} (0.75×)</option>
+      </select></label>
+      <label>${t("fxDensity")}<select id="o-fx">
+        <option value="1" ${settings.fxDensity >= 1 ? "selected" : ""}>${t("fxFull")}</option>
+        <option value="0.5" ${settings.fxDensity < 1 ? "selected" : ""}>${t("fxLite")}</option>
+      </select></label>
       <label>${t("fullscreen")}<input id="o-fs" type="checkbox" ${document.fullscreenElement ? "checked" : ""}></label>
       <div class="sect">${t("suitCol")}</div><div class="swatches">${cosBtns("suit")}</div>
       <div class="sect">${t("visorCol")}</div><div class="swatches">${cosBtns("visor")}</div>
@@ -256,6 +265,8 @@ export class Menus {
     bind("o-vol", e => { settings.volume = Number(e.value); au.applyVolume(); });
     bind("o-mus", e => { settings.music = e.checked; au.applyMusic(); });
     bind("o-dist", e => settings.renderDist = Number(e.value));
+    bind("o-rs", e => settings.renderScale = Number(e.value));
+    bind("o-fx", e => settings.fxDensity = Number(e.value));
     bind("o-fs", e => {
       if (e.checked) document.documentElement.requestFullscreen?.();
       else document.exitFullscreen?.();

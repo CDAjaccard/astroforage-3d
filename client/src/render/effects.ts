@@ -1,8 +1,11 @@
 /* Effets : particules (Points additifs), textes flottants (DOM projeté),
  * anneaux soniques, faisceaux. */
 import * as THREE from "three";
+import { settings } from "../config.js";
 
 const MAX = 3000;
+/** densité de particules (option graphique) */
+const dens = (n: number): number => Math.max(1, Math.round(n * (settings.fxDensity || 1)));
 
 function dotTexture(): THREE.Texture {
   const cv = document.createElement("canvas");
@@ -63,16 +66,16 @@ export class Effects {
 
   /** poussière/fumée */
   puff(x: number, y: number, z: number, color = "#9a8b78", n = 3): void {
-    for (let i = 0; i < n; i++) this.emit(x, y, z, color, 1.6, 1.2, -0.5, 1.1);
+    for (let i = 0, m = dens(n); i < m; i++) this.emit(x, y, z, color, 1.6, 1.2, -0.5, 1.1);
   }
   /** éclats de forage/impacts */
   chunks(x: number, y: number, z: number, color = "#c9a27a", n = 6): void {
-    for (let i = 0; i < n; i++) this.emit(x, y, z, color, 5, 2.6, 9, 0.7);
+    for (let i = 0, m = dens(n); i < m; i++) this.emit(x, y, z, color, 5, 2.6, 9, 0.7);
   }
   /** explosion */
   boom(x: number, y: number, z: number): void {
-    for (let i = 0; i < 26; i++) this.emit(x, y, z, i % 3 ? "#ff8c42" : "#ffd23e", 9, 4, 4, 0.9);
-    for (let i = 0; i < 14; i++) this.emit(x, y, z, "#5a5a66", 4, 3, -1, 1.8);
+    for (let i = 0, m = dens(26); i < m; i++) this.emit(x, y, z, i % 3 ? "#ff8c42" : "#ffd23e", 9, 4, 4, 0.9);
+    for (let i = 0, m = dens(14); i < m; i++) this.emit(x, y, z, "#5a5a66", 4, 3, -1, 1.8);
   }
   /** flamme de réacteur */
   flame(x: number, y: number, z: number): void {

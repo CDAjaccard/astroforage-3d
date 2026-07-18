@@ -26,13 +26,12 @@ autoritative persistante, FR/EN, Electron + scaffold Steamworks, CI, tests.
 
 ## v0.3 — « feel » (avant page Steam)
 
-- [ ] Relief de surface (cratères, rochers) — la surface est plane comme en
-      2D, la 3D mérite mieux
-- [ ] Animations de la foreuse : rotation du foret, flammes des réacteurs,
-      inclinaison en vol ; impacts de forage plus riches
-- [ ] SFX localisés (panner 3D) + variations ; mix
+- [x] Relief de surface : ondulations + rochers épars (zone de base plate)
+- [x] Animations de la foreuse : foret-vortex, flammes, inclinaison, hover
+- [x] SFX localisés : pan stéréo par direction + variations de fréquence
+- [x] Paramètres graphiques : résolution interne, densité de particules
+- [ ] Ombres dynamiques (option, défaut off)
 - [ ] Tutoriel contextuel renforcé (fantômes d'aide à la 1ʳᵉ construction)
-- [ ] Paramètres graphiques (ombres, particules, résolution interne)
 - [ ] Support manette (Steam Input) + Steam Deck verified checklist
 - [ ] Photosensibilité/accessibilité (réduction du shake, FOV étendu)
 

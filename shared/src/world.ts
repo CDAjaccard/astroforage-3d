@@ -230,37 +230,88 @@ export function genWorld(seed: number): GenResult {
     }
   }
 
-  /* relief : ondulations douces (0..2 voxels de régolithe) HORS de la zone de
-   * base, qui reste parfaitement plate pour la construction. Le jetpack sert
-   * à grimper — comme dans l'original. Déterministe par seed. */
+  /* relief : le site est un bassin d'impact. Remparts montagneux sur tout le
+   * pourtour de la carte (la muraille du cratère où la fusée s'est échouée),
+   * lèvre d'éjecta en croissant autour du camp, collines de régolithe entre
+   * les deux. La zone de base reste parfaitement plate pour la construction
+   * (hors bande des remparts, à l'ouest). RNG dérivées : le sous-sol
+   * (cavernes, filons, nids — RNG principale) reste strictement identique. */
   {
     const Rh = mulberry32((seed ^ 0x51ab7e) | 0);
-    const gsz = 10; // taille de cellule du bruit de valeur
-    const gn = Math.ceil(W / gsz) + 2;
-    const lattice = new Float32Array(gn * gn);
-    for (let i = 0; i < lattice.length; i++) lattice[i] = Rh();
-    const val = (x: number, z: number): number => {
-      const gx = x / gsz, gz = z / gsz;
-      const x0 = Math.floor(gx), z0 = Math.floor(gz);
-      const fx = gx - x0, fz = gz - z0;
-      const sx = fx * fx * (3 - 2 * fx), sz = fz * fz * (3 - 2 * fz);
-      const a = lattice[z0 * gn + x0], b = lattice[z0 * gn + x0 + 1];
-      const c = lattice[(z0 + 1) * gn + x0], d2 = lattice[(z0 + 1) * gn + x0 + 1];
-      return a + (b - a) * sx + (c - a) * sz + (a - b - c + d2) * sx * sz;
+    const mkNoise = (gsz: number): ((x: number, z: number) => number) => {
+      const gn = Math.ceil(W / gsz) + 3;
+      const lattice = new Float32Array(gn * gn);
+      for (let i = 0; i < lattice.length; i++) lattice[i] = Rh();
+      return (x, z) => {
+        const gx = x / gsz, gz = z / gsz;
+        const x0 = Math.floor(gx), z0 = Math.floor(gz);
+        const fx = gx - x0, fz = gz - z0;
+        const sx = fx * fx * (3 - 2 * fx), sz = fz * fz * (3 - 2 * fz);
+        const a = lattice[z0 * gn + x0], b = lattice[z0 * gn + x0 + 1];
+        const c = lattice[(z0 + 1) * gn + x0], d2 = lattice[(z0 + 1) * gn + x0 + 1];
+        return a + (b - a) * sx + (c - a) * sz + (a - b - c + d2) * sx * sz;
+      };
     };
+    const nHill = mkNoise(10);   // collines fines
+    const nRim = mkNoise(14);    // modulation des remparts et de la lèvre
+    /* hash par colonne pour les crêtes déchiquetées */
+    const jag = (x: number, z: number): number => {
+      const n = Math.sin(x * 91.7 + z * 47.3 + (seed % 1024) * 0.719) * 24634.63;
+      return n - Math.floor(n);
+    };
+
     for (let z = 1; z < W - 1; z++) {
       for (let x = 1; x < W - 1; x++) {
         const dRock = Math.hypot(x + 0.5 - (ROCK_POS.x + 0.5), z + 0.5 - (ROCK_POS.z + 0.5));
-        if (dRock < FLAT_R) continue;
-        const n = val(x, z);
-        /* fondu en bordure de zone plate pour éviter une falaise */
-        const edge = Math.min(1, (dRock - FLAT_R) / 6);
-        const h = n > 0.82 ? 2 : n > 0.58 ? 1 : 0;
-        const hh = Math.min(h, edge >= 1 ? 2 : 1);
-        for (let k = 1; k <= hh; k++) {
-          const d3 = SURF - k;
-          if (d3 >= 1) grid[idx(x, z, d3)] = 1;
+        const wEdge = Math.min(x, z, W - 1 - x, W - 1 - z);
+
+        /* remparts : la muraille du cratère monte vers le bord du monde */
+        let hRim = 0;
+        if (wEdge < RIM_W) {
+          const t = 1 - wEdge / RIM_W;
+          const amp = 0.6 + nRim(x, z) * 0.55;
+          hRim = Math.round((SURF - 1) * Math.pow(t, 1.7) * amp + t * 1.3);
+          if (hRim > 0 && jag(x, z) > 0.8) hRim++;   // pics isolés
         }
+
+        /* lèvre d'éjecta : bourrelet en croissant à la limite du camp */
+        let hLip = 0;
+        const lt = dRock - FLAT_R;
+        if (lt >= 0 && lt < 7 && wEdge >= RIM_W) {
+          const gate = nRim(x + 29, z + 17);          // brèches praticables
+          if (gate > 0.34) hLip = Math.round(Math.sin((lt / 7) * Math.PI) * (1.0 + gate * 1.8));
+        }
+
+        /* collines : ondulations douces de régolithe dans le bassin */
+        let hHill = 0;
+        if (dRock >= FLAT_R) {
+          const n = nHill(x, z);
+          const edge = Math.min(1, (dRock - FLAT_R) / 6);
+          const h = n > 0.84 ? 3 : n > 0.7 ? 2 : n > 0.52 ? 1 : 0;
+          hHill = Math.min(h, edge >= 1 ? 3 : 1);
+        }
+
+        const h = Math.min(Math.max(hRim, hLip, hHill), SURF - 1);
+        if (h <= 0) continue;
+        for (let k = 1; k <= h; k++) {
+          const d3 = SURF - k;
+          if (d3 < 1) break;
+          /* manteau de régolithe (2 voxels), roche dessous, basalte au cœur —
+           * strates cohérentes sur les pentes en escalier */
+          const dep = h - k;
+          grid[idx(x, z, d3)] = dep <= 1 ? 1 : dep <= 3 ? 2 : 3;
+        }
+      }
+    }
+
+    /* couronne : le bord extrême du monde est une crête de socle qui épouse
+     * la silhouette des remparts (limite de carte lisible et infranchissable) */
+    for (let z = 0; z < W; z++) {
+      for (let x = 0; x < W; x++) {
+        if (x !== 0 && x !== W - 1 && z !== 0 && z !== W - 1) continue;
+        const amp = 0.6 + nRim(x, z) * 0.55;
+        const h = Math.min(SURF - 1, Math.round((SURF - 1) * amp + 1.3));
+        for (let k = 1; k <= h; k++) grid[idx(x, z, SURF - k)] = 9;
       }
     }
   }
@@ -268,12 +319,16 @@ export function genWorld(seed: number): GenResult {
   return { grid, nests };
 }
 
+/** Largeur (voxels) de la bande des remparts du cratère en bordure de carte. */
+export const RIM_W = 10;
+
 /** Rayon (voxels, depuis la fusée) de la zone de base parfaitement plate. */
 export const FLAT_R = 32;
 
-/** Y-monde du sommet solide d'une colonne de surface (pose des débris, props). */
+/** Y-monde du sommet solide d'une colonne de surface (pose des débris, props).
+ * Balaie depuis le haut du relief (remparts inclus) jusque sous la surface. */
 export function surfaceTopY(S: { grid: Uint8Array; worldH: number }, vx: number, vz: number): number {
-  for (let d = SURF - 2; d <= SURF + 2; d++) {
+  for (let d = 1; d <= SURF + 2; d++) {
     if (!isPassableId(tile(S, vx, vz, d))) return topYOfRow(d);
   }
   return 0;

@@ -8,6 +8,12 @@
       "port": 5173
     },
     {
+      "name": "client-b",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--workspace=@astroforage/client", "--", "--port", "5174", "--strictPort"],
+      "port": 5174
+    },
+    {
       "name": "server",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--workspace=@astroforage/server"],

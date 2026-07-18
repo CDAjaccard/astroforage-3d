@@ -175,6 +175,34 @@ function fallbackHeart(): THREE.Object3D {
   return g;
 }
 
+/** Balise de détresse clignotante (sommet de la fusée échouée). */
+export function makeBeacon(): THREE.Object3D {
+  const g = new THREE.Group();
+  const bulb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.15, 10, 8),
+    mat("#ff6a5a", { emissive: "#ff2a1a", emissiveIntensity: 0.4, roughness: 0.3 })
+  );
+  bulb.name = "bulb";
+  g.add(bulb);
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = 64;
+  const cx = cv.getContext("2d")!;
+  const gr = cx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, "rgba(255,255,255,0.95)");
+  gr.addColorStop(0.4, "rgba(255,255,255,0.32)");
+  gr.addColorStop(1, "rgba(255,255,255,0)");
+  cx.fillStyle = gr;
+  cx.fillRect(0, 0, 64, 64);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: new THREE.CanvasTexture(cv), color: 0xff4030, transparent: true,
+    opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending
+  }));
+  halo.scale.setScalar(2.2);
+  halo.name = "halo";
+  g.add(halo);
+  return g;
+}
+
 export function makeNest(): THREE.Object3D {
   const g = new THREE.Group();
   const m = mat("#5a3a78", { roughness: 0.85 });

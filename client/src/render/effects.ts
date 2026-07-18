@@ -88,6 +88,18 @@ export class Effects {
     p.vx = 16 + Math.random() * 10;   // vent dominant +X
     p.vz = (Math.random() - 0.5) * 6;
   }
+  /** mote de poussière ambiante : dérive lente au vent (vie en surface) */
+  mote(x: number, y: number, z: number): void {
+    if (Math.random() > (settings.fxDensity || 1)) return;
+    const i = this.emit(x, y, z, "#b39a7d", 0, 0, 0, 2.4);
+    const p = this.parts[i];
+    p.vx = 0.7 + Math.random() * 0.9;   // même vent dominant +X que les tempêtes
+    p.vy = (Math.random() - 0.5) * 0.35;
+    p.vz = (Math.random() - 0.5) * 0.6;
+    p.grav = -0.02;
+    const c = 0.16 + Math.random() * 0.1;   // discret (rendu additif)
+    this.col[i * 3] = c; this.col[i * 3 + 1] = c * 0.88; this.col[i * 3 + 2] = c * 0.72;
+  }
   /** colonne du monte-charge */
   beamCol(x: number, y: number, z: number): void {
     for (let i = 0; i < 16; i++) this.emit(x, y + i * 0.8, z, "#7de0d8", 0.8, 1.5, -0.2, 0.8);

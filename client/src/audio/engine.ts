@@ -8,6 +8,11 @@ let master: GainNode | null = null;
 let digGain: GainNode | null = null;
 let digFilter: BiquadFilterNode | null = null;
 let jetGain: GainNode | null = null;
+let engGain: GainNode | null = null;
+let engOsc: OscillatorNode | null = null;
+let engOsc2: OscillatorNode | null = null;
+let engFilter: BiquadFilterNode | null = null;
+let engNoiseGain: GainNode | null = null;
 let facHumGain: GainNode | null = null;
 let facSteamGain: GainNode | null = null;
 let facReacGain: GainNode | null = null;
@@ -108,6 +113,38 @@ export function ensure(): boolean {
     jf.connect(jetGain);
     jetGain.connect(master);
     jsrc.start();
+    /* ---- moteur de la foreuse : ronron grave qui monte en régime ---- */
+    engOsc = ctx.createOscillator();
+    engOsc.type = "sawtooth";
+    engOsc.frequency.value = 38;
+    engOsc2 = ctx.createOscillator();
+    engOsc2.type = "square";
+    engOsc2.frequency.value = 77;
+    engFilter = ctx.createBiquadFilter();
+    engFilter.type = "lowpass";
+    engFilter.frequency.value = 220;
+    engFilter.Q.value = 1.1;
+    engGain = ctx.createGain();
+    engGain.gain.value = 0;
+    engOsc.connect(engFilter);
+    engOsc2.connect(engFilter);
+    engFilter.connect(engGain);
+    engGain.connect(master);
+    engOsc.start();
+    engOsc2.start();
+    /* granulosité mécanique (cliquetis filtré) */
+    const enSrc = ctx.createBufferSource();
+    enSrc.buffer = noiseBuffer(1.2);
+    enSrc.loop = true;
+    const enF = ctx.createBiquadFilter();
+    enF.type = "lowpass";
+    enF.frequency.value = 150;
+    engNoiseGain = ctx.createGain();
+    engNoiseGain.gain.value = 0;
+    enSrc.connect(enF);
+    enF.connect(engNoiseGain);
+    engNoiseGain.connect(master);
+    enSrc.start();
     /* ---- bruits d'usine (bâtiments actifs, dosés par proximité) ---- */
     /* hum électrique grave (générateur / fonderie / atelier / baie) */
     const humOsc = ctx.createOscillator();
@@ -253,6 +290,18 @@ export const au = {
   setJet(on: boolean): void {
     if (!ctx || !jetGain) return;
     jetGain.gain.setTargetAtTime(on ? 0.06 : 0, ctx.currentTime, 0.07);
+  },
+  /** Moteur de la foreuse : au ralenti dès qu'on est à bord, régime 0..1. */
+  engine(on: boolean, rpm: number, boost: boolean): void {
+    if (!ctx || !engGain || !engOsc || !engOsc2 || !engFilter || !engNoiseGain) return;
+    const t = ctx.currentTime;
+    const r = Math.max(0, Math.min(1, rpm));
+    const f = 34 + r * 44 + (boost ? 9 : 0);
+    engOsc.frequency.setTargetAtTime(f, t, 0.11);
+    engOsc2.frequency.setTargetAtTime(f * 2.01, t, 0.11);
+    engFilter.frequency.setTargetAtTime(200 + r * 460 + (boost ? 320 : 0), t, 0.14);
+    engGain.gain.setTargetAtTime(on ? 0.05 + r * 0.03 + (boost ? 0.015 : 0) : 0, t, on ? 0.12 : 0.22);
+    engNoiseGain.gain.setTargetAtTime(on ? 0.012 + r * 0.02 : 0, t, 0.15);
   },
   /** Bruits d'usine : intensités 0..1 par famille (déjà dosées par distance). */
   factory(hum: number, steam: number, reactor: number): void {

@@ -10,9 +10,10 @@ import {
 } from "@astroforage/shared";
 import { SceneMgr } from "../render/sceneMgr.js";
 import { VoxelWorld } from "../render/voxelWorld.js";
-import { Props, makeBuilding, makeNest, makeDebris, animAstro, type AstroRig } from "../render/props.js";
+import { Props, makeBuilding, makeNest, makeDebris, makeBeacon, animAstro, type AstroRig } from "../render/props.js";
 import { Effects } from "../render/effects.js";
 import { Hud, type HudState } from "../ui/hud.js";
+import { Cockpit } from "../ui/cockpit.js";
 import { Panels, type PanelHost } from "../ui/panels.js";
 import { Menus, VERSION, type MenuHost } from "../ui/menus.js";
 import { t, pick, getLang } from "../ui/i18n.js";
@@ -50,6 +51,7 @@ export class Game {
   scene: SceneMgr;
   input: Input;
   hud: Hud;
+  cockpit: Cockpit;
   panels: Panels;
   menus: Menus;
   fx!: Effects;
@@ -106,6 +108,9 @@ export class Game {
   private drillTilt = { x: 0, z: 0 };
   private thrusting = false;
   private hurtA = 0;
+  private beaconBulb: THREE.Mesh | null = null;
+  private beaconHalo: THREE.Sprite | null = null;
+  private moteT = 0;
   private slotId: string | null = null;
   private uiLayer: HTMLDivElement;
   private introT = 0;
@@ -125,6 +130,7 @@ export class Game {
     this.scene = new SceneMgr(canvas);
     this.input = new Input(canvas);
     this.hud = new Hud(container);
+    this.cockpit = new Cockpit(container);
     this.fx = new Effects(this.scene.scene, this.uiLayer);
     this.overlays = new Overlays(this.scene.scene);
     this.introFade = document.createElement("div");
@@ -228,7 +234,7 @@ export class Game {
 
   private setupWorld(): void {
     const S = this.sim!.S;
-    if (!this.world) this.world = new VoxelWorld(this.scene.scene, S);
+    if (!this.world) this.world = new VoxelWorld(this.scene.scene, S, this.scene.renderer.capabilities.getMaxAnisotropy());
     else this.world.setState(S);
     this.world.setState(S);
     this.scanSpecials();
@@ -238,6 +244,12 @@ export class Game {
     this.scene.scene.add(this.drillMesh);
     this.rocketMesh = this.castShadows(this.props.makeRocket());
     this.rocketMesh.position.set((ROCK_POS.x + 0.5) * VOX, 0, (ROCK_POS.z + 0.5) * VOX);
+    /* balise de détresse au sommet (suit la fusée au décollage) */
+    const beacon = makeBeacon();
+    beacon.position.y = 10.9;
+    this.rocketMesh.add(beacon);
+    this.beaconBulb = beacon.getObjectByName("bulb") as THREE.Mesh;
+    this.beaconHalo = beacon.getObjectByName("halo") as THREE.Sprite;
     this.scene.scene.add(this.rocketMesh);
     this.myRig = this.props.makeAstro(settings.cosmetic);
     this.castShadows(this.myRig.group);
@@ -693,6 +705,7 @@ export class Game {
       this.digTarget = null;
       this.thrusting = false;
       au.setDig(false);
+      au.engine(false, 0, false);
       const angles = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
       let placed = false;
       for (const ang of angles) {
@@ -1017,6 +1030,8 @@ export class Game {
     if (this.mode === "boot") return;
     this.input.pollGamepad(dt);
     const sim = this.sim;
+    /* coupe le moteur hors pilotage (menu, intérieur, décollage, à pied) */
+    if (this.mode !== "play" || !this.astro.inDrill) au.engine(false, 0, false);
 
     if (this.mode === "menu" || !sim) {
       this.scene.updateEnv(0.85, 0, 0, performance.now() / 1000, 0.3);
@@ -1277,6 +1292,9 @@ export class Game {
     if (d.boosting) this.localBoostT += dt;
     au.setDig(digging);
     au.setBoost(d.boosting, digging);
+    /* moteur : ralenti à bord, monte en régime avec vitesse/poussée/forage */
+    const rpm = Math.min(1, hv / 16 + Math.abs(d.vy) / 18 + (thrust ? 0.35 : 0) + (digging ? 0.3 : 0));
+    au.engine(true, rpm, d.boosting);
     if (d.boosting && digging) this.scene.shake = Math.max(this.scene.shake, 0.9);
 
     /* énergie */
@@ -1531,6 +1549,20 @@ export class Game {
       const rx = (ROCK_POS.x + 0.5) * VOX, rz = (ROCK_POS.z + 0.5) * VOX;
       this.fx.puff(rx + (Math.random() - 0.5) * 2, 4 + Math.random() * 5, rz + (Math.random() - 0.5) * 2, "#5f5a66", 1);
     }
+    /* fusée échouée (Acte I) : dégazage cryo tant qu'elle n'est pas réparée */
+    if (S.act === 1 && !S.launched && this.mode === "play" && Math.random() < dt * 1.3 && this.sim!.repairedCount() < 5) {
+      const rx = (ROCK_POS.x + 0.5) * VOX, rz = (ROCK_POS.z + 0.5) * VOX;
+      const a2 = Math.random() * 6.283;
+      this.fx.puff(rx + Math.cos(a2) * 1.8, 1.0 + Math.random() * 1.8, rz + Math.sin(a2) * 1.8, "#c7d2da", 1);
+    }
+    /* balise de détresse : double flash rouge périodique */
+    if (this.beaconBulb && this.beaconHalo) {
+      const ph = time % 2.4;
+      const on = ph < 0.1 || (ph > 0.28 && ph < 0.38) ? 1 : 0;
+      (this.beaconBulb.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.4 + on * 2.6;
+      const hm = this.beaconHalo.material as THREE.SpriteMaterial;
+      hm.opacity += (on * 0.8 - hm.opacity) * Math.min(1, dt * 26);
+    }
 
     /* bâtiments : visuels animés (fumée, lueurs, mouvement) */
     const bkeys = new Set<string>();
@@ -1683,6 +1715,15 @@ export class Game {
         this.fx.sand(b.x + (Math.random() - 0.5) * 30, 0.4 + Math.random() * 2.6, b.z + (Math.random() - 0.5) * 30);
       }
     }
+    /* poussière ambiante portée par le vent (surface, hors tempête) */
+    this.moteT -= dt;
+    if (this.mode === "play" && this.moteT <= 0) {
+      const b = this.body();
+      if (b.y > -3 && !S.storm) {
+        this.moteT = 0.11 + Math.random() * 0.12;
+        this.fx.mote(b.x + (Math.random() - 0.5) * 36, 0.3 + Math.random() * 5, b.z + (Math.random() - 0.5) * 36);
+      } else this.moteT = 0.6;
+    }
 
     /* joueurs distants */
     for (const [, r] of this.remotes) {
@@ -1752,6 +1793,20 @@ export class Game {
     this.hud.hurtFlash(this.hurtA);
     this.hurtA = Math.max(0, this.hurtA - dt * 1.2);
     this.hud.update(dt, S, sim.power, sim.daylight, hs, sim.questProg(S.qi));
+
+    /* cockpit de la foreuse (vue FPS uniquement — en TPS on voit l'engin) */
+    this.cockpit.update({
+      visible: this.mode === "play" && a.inDrill && this.camMode === "fps",
+      speed: Math.hypot(d.vx, d.vy, d.vz),
+      yaw: this.input.yaw,
+      depth: hs.depth,
+      hp: d.hp, hpMax: hs.hpMax,
+      en: d.en, enMax: hs.enMax,
+      cargo: hs.cargo, cargoMax: hs.cargoMax,
+      hot: hs.hot > 0,
+      boost: d.boosting,
+      digging: d.digging
+    });
 
     /* radar à minerais (instrument de bord de la foreuse, améliorable) */
     this.radarT += dt;
@@ -1825,6 +1880,7 @@ export class Game {
     this.hud.setVisible(false);
     au.ensure();
     au.setDig(false);
+    au.engine(false, 0, false);
   }
 
   private updateLaunchAnim(dt: number): void {

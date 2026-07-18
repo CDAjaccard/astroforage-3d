@@ -4,6 +4,9 @@ import * as THREE from "three";
 import { settings } from "../config.js";
 import { Sky } from "./sky.js";
 
+const HEMI_DAY = new THREE.Color(0xbfd8e0);
+const HEMI_NIGHT = new THREE.Color(0x39496b);
+
 export class SceneMgr {
   renderer: THREE.WebGLRenderer;
   scene = new THREE.Scene();
@@ -15,6 +18,8 @@ export class SceneMgr {
   lampGlow: THREE.PointLight;
   shake = 0;
   private fog: THREE.Fog;
+  /** direction de la lumière directionnelle (soleil le jour, lune la nuit) */
+  private lightDir = new THREE.Vector3(0.3, 0.8, 0.2).normalize();
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -92,11 +97,32 @@ export class SceneMgr {
     const under = Math.min(1, depth / 26);           // transition surface -> souterrain
     const dayAmb = 0.28 + daylight * 0.72;
     this.hemi.intensity = (0.85 * dayAmb) * (1 - under) + 0.06;
-    this.sun.intensity = 1.5 * daylight * (1 - under) * (1 - storm * 0.65);
-    this.sun.color.setHSL(0.09, 0.55, 0.62 + daylight * 0.1);
+    this.hemi.color.copy(HEMI_NIGHT).lerp(HEMI_DAY, daylight);
 
-    /* brouillard : couleur ciel en surface, noir-violet dessous */
-    const surfCol = new THREE.Color().setHSL(0.07, 0.4, 0.12 + daylight * 0.38);
+    /* soleil : chaud et rasant à l'aube/au crépuscule, neutre au zénith ;
+     * la nuit, la grande lune prend le relais en bleu froid */
+    const el = Math.sin(dayPhase * Math.PI * 2);   // élévation (zénith à 0.25)
+    const dayI = 1.5 * daylight * (1 - under) * (1 - storm * 0.65);
+    const moonI = 0.17 * (1 - daylight) * (1 - under);
+    if (dayI >= moonI) {
+      const warm = 1 - Math.min(1, Math.max(0, el) * 2.4);         // 1 à l'horizon
+      this.sun.intensity = dayI * (1 + warm * 0.25);
+      this.sun.color.setHSL(0.10 - warm * 0.05, 0.5 + warm * 0.35, 0.62 + (1 - warm) * 0.08);
+      this.lightDir.copy(this.sky.uniforms.uSunDir.value);
+      if (this.lightDir.y < 0.08) this.lightDir.y = 0.08;          // jamais sous l'horizon
+    } else {
+      this.sun.intensity = moonI;
+      this.sun.color.setHex(0x93a7d4);
+      this.lightDir.set(0.5, 0.45, -0.6).normalize();              // la grande lune
+    }
+
+    /* brouillard : couleur ciel en surface (bleu nuit après le couchant),
+     * noir-violet dessous */
+    const surfCol = new THREE.Color().setHSL(
+      0.07 + (1 - daylight) * 0.52,
+      0.22 + daylight * 0.18,
+      0.10 + daylight * 0.40
+    );
     if (storm > 0.01) surfCol.lerp(new THREE.Color(0x8a6a45), storm * 0.8);
     const caveCol = new THREE.Color(0x0b0812);
     this.fog.color.copy(surfCol).lerp(caveCol, under);
@@ -118,11 +144,10 @@ export class SceneMgr {
     this.lamp.position.copy(this.camera.position);
     this.lamp.target.position.copy(this.camera.position).addScaledVector(dir, 12);
     this.lampGlow.position.copy(this.camera.position).addScaledVector(dir, 2.6);
-    if (settings.shadows) {
-      const sd = this.sky.uniforms.uSunDir.value;
-      this.sun.target.position.set(this.camera.position.x, 0, this.camera.position.z);
-      this.sun.position.copy(this.sun.target.position).addScaledVector(sd, 120);
-    }
+    /* la directionnelle suit le soleil/la lune (ombres cohérentes ET modelé
+     * des faces qui tourne avec l'heure, même sans ombres) */
+    this.sun.target.position.set(this.camera.position.x, 0, this.camera.position.z);
+    this.sun.position.copy(this.sun.target.position).addScaledVector(this.lightDir, 120);
   }
 
   render(dt: number): void {

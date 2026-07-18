@@ -2,7 +2,7 @@
  * sommet, atlas procédural. Deux géométries par chunk : matière éclairée
  * (roches/minerais) et matière émissive (lave). */
 import * as THREE from "three";
-import { W, SURF, isPassableId } from "@astroforage/shared";
+import { W, SURF, ROCK_POS, isPassableId } from "@astroforage/shared";
 import { TILE_SLOT, slotUV, buildAtlas } from "./atlas.js";
 
 const CS = 16; // taille de chunk (voxels)
@@ -40,8 +40,10 @@ class MeshBuf {
       this.pos.push(wx + c[0] * VOX, wy + c[1] * VOX, wz + c[2] * VOX);
       this.nrm.push(face.n[0], face.n[1], face.n[2]);
       this.uv.push(uvs[i][0], uvs[i][1]);
+      const occ = 1 - ao[i] / 3;               // 0 dégagé .. 1 en creux
       const l = (0.55 + 0.45 * (ao[i] / 3)) * jitter;
-      this.col.push(l, l, l);
+      /* les recoins tirent vers le violet froid (ambiance grotte) */
+      this.col.push(l * (1 - occ * 0.10), l * (1 - occ * 0.03), l * (1 + occ * 0.09));
     }
     /* flip du quad selon l'AO pour éviter l'artefact diagonal */
     if (ao[0] + ao[2] > ao[1] + ao[3]) this.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
@@ -64,6 +66,12 @@ function jitterOf(x: number, z: number, d: number): number {
   const n = Math.sin(x * 12.9898 + z * 78.233 + d * 37.719) * 43758.5453;
   return 0.92 + (n - Math.floor(n)) * 0.13;
 }
+function hash01(x: number, z: number): number {
+  const n = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
+  return n - Math.floor(n);
+}
+/** Rayon (voxels) de la zone calcinée autour du site du crash. */
+const SCORCH_R = 9;
 
 export class VoxelWorld {
   group = new THREE.Group();
@@ -75,9 +83,11 @@ export class VoxelWorld {
   /** cristaux / cœur présents (props gérés par props.ts) : positions voxel */
   onSpecialChanged: () => void = () => { /* assigné par Game */ };
 
-  constructor(scene: THREE.Scene, S: GridRef) {
+  constructor(scene: THREE.Scene, S: GridRef, maxAniso = 0) {
     this.S = S;
     const atlas = buildAtlas();
+    /* filtrage anisotrope : textures nettes en angle rasant (plafonné : perf) */
+    if (maxAniso > 1) atlas.texture.anisotropy = Math.min(8, maxAniso);
     this.litMat = new THREE.MeshLambertMaterial({ map: atlas.texture, vertexColors: true });
     this.glowMat = new THREE.MeshBasicMaterial({ map: atlas.texture, vertexColors: true });
     scene.add(this.group);
@@ -165,7 +175,17 @@ export class VoxelWorld {
         for (let x = cx * CS; x < (cx + 1) * CS; x++) {
           const id = S.grid[(d * W + z) * W + x];
           if (isPassableId(id)) continue;      // air + props
-          const jit = jitterOf(x, z, d);
+          let jit = jitterOf(x, z, d);
+          /* relief : les sommets s'éclaircissent avec l'altitude */
+          if (d < SURF) jit *= 1 + (SURF - d) * 0.025;
+          /* sol calciné : fondu radial autour du site du crash de la fusée */
+          let scorch = 0;
+          if (id === 1 && d <= SURF) {
+            const ddx = x + 0.5 - (ROCK_POS.x + 0.5), ddz = z + 0.5 - (ROCK_POS.z + 0.5);
+            scorch = Math.max(0, 1 - Math.hypot(ddx, ddz) / SCORCH_R);
+            jit *= 1 - scorch * 0.28;
+          }
+          const scorched = scorch > 0.15 + hash01(x, z) * 0.25;   // lisière organique
           const isGlow = id === 6;
           const buf = isGlow ? glow : lit;
           for (const face of FACES) {
@@ -193,7 +213,11 @@ export class VoxelWorld {
               ao4[ci] = s1 && s2 ? 0 : 3 - ((s1 ? 1 : 0) + (s2 ? 1 : 0) + (co ? 1 : 0));
             }
             let slot = TILE_SLOT[id] ?? TILE_SLOT[2];
-            if (id === 1 && d === SURF && face.n[1] === 1) slot = TILE_SLOT[100];
+            /* dessus de régolithe exposé au ciel (camp, collines, remparts) :
+             * texture de surface — calcinée près de l'épave */
+            if (id === 1 && d <= SURF && face.n[1] === 1) slot = TILE_SLOT[scorched ? 101 : 100];
+            /* socle à l'air libre (crête des remparts) : falaise brune */
+            else if (id === 9 && d <= SURF) slot = TILE_SLOT[102];
             buf.quad(face, x * VOX, vy * VOX, z * VOX, slotUV(slot), ao4, isGlow ? 1 : jit);
           }
         }

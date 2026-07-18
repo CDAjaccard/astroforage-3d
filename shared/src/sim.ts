@@ -941,8 +941,9 @@ export class GameSim {
 
     /* météorites nocturnes */
     if (!this.meteorEv && this.daylight < 0.08 && Math.random() < dt * 0.015) {
-      const tx = 6 + Math.random() * (W - 14);
-      const tz = 6 + Math.random() * (W - 14);
+      /* cible dans le bassin, hors remparts du cratère (débris atteignables) */
+      const tx = 12 + Math.random() * (W - 24);
+      const tz = 12 + Math.random() * (W - 24);
       this.meteorEv = { tx, tz, t: 2.4 };
       this.ev({ t: "meteor", x: tx, z: tz });
     }

@@ -32,16 +32,53 @@ void main(){
   vec3 hor = mix(nightHor, dayHor, uDay);
   vec3 col = mix(hor, zen, pow(max(h, 0.0), 0.6));
 
+  /* aube / crépuscule : embrasement de l'horizon côté soleil */
+  float dawn = 1.0 - smoothstep(0.0, 0.32, abs(uSunDir.y));
+  vec2 az = normalize(d.xz + vec2(1e-4));
+  vec2 saz = normalize(uSunDir.xz + vec2(1e-4));
+  float facing = max(0.0, dot(az, saz)) * 0.5 + 0.5;
+  col += vec3(0.90, 0.38, 0.14) * dawn * facing * pow(max(0.0, 1.0 - abs(h)), 3.0) * 0.55;
+
   /* soleil */
   float s = max(dot(d, uSunDir), 0.0);
   col += vec3(1.0, 0.85, 0.6) * pow(s, 600.0) * 3.0 * uDay;
   col += vec3(1.0, 0.6, 0.3) * pow(s, 8.0) * 0.25 * uDay;
+
+  /* voie lactée : fine écharpe laiteuse en travers du ciel nocturne */
+  float mw = pow(max(0.0, 1.0 - abs(dot(d, normalize(vec3(0.62, 0.30, -0.72))))), 3.6);
+  float mwn = 0.65 + 0.35 * hash(floor(d * 90.0));
+  col += vec3(0.26, 0.30, 0.42) * mw * mwn * 0.16 * (1.0 - uDay) * step(0.0, h);
 
   /* étoiles (la nuit) */
   vec3 sp = floor(d * 220.0);
   float st = step(0.9985, hash(sp));
   float tw = 0.6 + 0.4 * sin(uTime * 2.0 + hash(sp.zxy) * 20.0);
   col += vec3(0.9, 0.95, 1.0) * st * tw * (1.0 - uDay) * step(0.02, h);
+
+  /* géante gazeuse annelée, fixe dans le ciel de KEPLER-9b */
+  {
+    vec3 gg = normalize(vec3(-0.52, 0.34, -0.78));
+    vec3 t1 = normalize(cross(gg, vec3(0.0, 1.0, 0.0)));
+    vec3 t2 = cross(t1, gg);
+    float gr = 0.15;                             // rayon angulaire (corde)
+    vec2 pq = vec2(dot(d, t1), dot(d, t2)) / gr;
+    float rr = length(pq);
+    float gvis = mix(1.0, 0.38, uDay) * (1.0 - uStorm) * step(0.0, dot(d, gg));
+    /* anneaux : ellipse inclinée, cachée derrière le disque */
+    vec2 rp = vec2(pq.x * 0.921 + pq.y * 0.390, (pq.x * -0.390 + pq.y * 0.921) / 0.24);
+    float rho = length(rp);
+    float ring = smoothstep(1.20, 1.42, rho) * (1.0 - smoothstep(1.95, 2.20, rho));
+    ring *= 0.55 + 0.45 * sin(rho * 24.0);       // sillons
+    if (rr < 1.0) {
+      float limb = sqrt(max(0.0, 1.0 - rr * rr));
+      float bands = 0.5 + 0.5 * sin(pq.y * 13.0 + sin(pq.x * 2.5 + pq.y * 4.0) * 0.6);
+      vec3 gcol = mix(vec3(0.50, 0.34, 0.27), vec3(0.92, 0.76, 0.58), bands) * (0.40 + 0.60 * limb);
+      float disk = smoothstep(1.0, 0.965, rr);
+      col = mix(col, gcol, disk * gvis);
+    } else {
+      col = mix(col, vec3(0.86, 0.74, 0.60), ring * 0.45 * gvis);
+    }
+  }
 
   /* deux lunes */
   vec3 m1 = normalize(vec3(0.5, 0.45, -0.6));
@@ -83,8 +120,10 @@ export class Sky {
     this.uniforms.uDay.value = daylight;
     this.uniforms.uStorm.value = storm;
     this.uniforms.uTime.value = time;
-    /* trajectoire du soleil liée à la phase du jour */
-    const a = dayPhase * Math.PI * 2 - Math.PI * 0.5;
-    this.uniforms.uSunDir.value.set(Math.cos(a) * 0.9, Math.sin(a), 0.35).normalize();
+    /* trajectoire du soleil alignée sur la lumière de la sim : zénith à
+     * dayPhase = 0.25 (pic de daylight), couchant vers 0.54. Élévation
+     * plafonnée (~62°) pour garder du modelé sur les faces verticales. */
+    const a = dayPhase * Math.PI * 2;
+    this.uniforms.uSunDir.value.set(Math.cos(a) * 0.9, Math.sin(a) * 0.82, 0.44).normalize();
   }
 }

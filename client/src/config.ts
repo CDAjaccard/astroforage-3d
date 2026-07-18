@@ -17,6 +17,10 @@ export interface Settings {
   renderScale: number;
   /** densité de particules (0.5 léger · 1 normal) */
   fxDensity: number;
+  /** ombres dynamiques (coûteuses — défaut désactivé) */
+  shadows: boolean;
+  /** intensité des secousses d'écran (accessibilité : 0 / 0.5 / 1) */
+  shakeScale: number;
 }
 
 const KEY = "af3d_settings";
@@ -39,7 +43,9 @@ export const settings: Settings = (() => {
     nick: "",
     servers: [],
     renderScale: 0,
-    fxDensity: 1
+    fxDensity: 1,
+    shadows: false,
+    shakeScale: 1
   };
   try {
     const raw = localStorage.getItem(KEY);

@@ -206,6 +206,7 @@ export class VoxelWorld {
     if (litGeo) {
       rec.lit = new THREE.Mesh(litGeo, this.litMat);
       rec.lit.matrixAutoUpdate = false;
+      rec.lit.receiveShadow = true;   // ombres optionnelles : le terrain les reçoit
       this.group.add(rec.lit);
     }
     if (glowGeo) {

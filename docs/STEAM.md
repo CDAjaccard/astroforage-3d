@@ -99,7 +99,24 @@ Roadmap : invitations Steam + Steam Datagram Relay via `steamworks.js`
 - [ ] Résolutions : fenêtre redimensionnable + plein écran ✅.
 - [ ] macOS : build ultérieur — retirer la coche macOS au lancement Windows.
 
-## 7. macOS (plus tard)
+## 7. Steam Deck — checklist « Verified »
+
+Le jeu est conçu pour passer la review Deck :
+
+| Critère Valve | État |
+|---|---|
+| Support manette complet | ✅ Gamepad API (Steam Input → XInput) : sticks déplacement/visée, A saut/vol, RT/RB forer, LB/LT surrégime, X interagir, Y caméra, B retour, Start pause, Select stock, D-pad construire/aide/robot/rappel. Astuce 🎮 affichée à la connexion. |
+| Résolution 1280×800 | ✅ UI fluide (CSS responsive), FOV réglable 60-110 |
+| Lisibilité du texte | ✅ tailles ≥ 12 px ; à re-vérifier sur écran Deck réel |
+| Pas de launcher/DRM tiers | ✅ l'exe démarre directement |
+| Jouable hors-ligne | ✅ solo 100 % local |
+| Défauts de performance | Options : résolution interne 0.75×, particules allégées, ombres désactivées par défaut |
+| Clavier virtuel | ⚠️ champs texte (pseudo/salle coop) : invoquer le clavier Steam — à tester sur Deck ; sinon saisie tactile |
+
+Reste à faire sur machine réelle : passe de test Deck (perfs Proton,
+overlay, clavier virtuel) avant de cocher « Deck Verified » sur la fiche.
+
+## 8. macOS (plus tard)
 
 `npm run dist:mac` sur un Mac (electron-builder ne cross-compile pas les
 builds signés). Nécessite : compte Apple Developer, certificat Developer ID,

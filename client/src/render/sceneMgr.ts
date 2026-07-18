@@ -33,6 +33,16 @@ export class SceneMgr {
     this.sun = new THREE.DirectionalLight(0xffe0b0, 1.4);
     this.sun.position.set(40, 80, 25);
     this.scene.add(this.sun);
+    this.scene.add(this.sun.target);
+    /* ombres dynamiques (option) : caméra ortho qui suit le joueur */
+    this.sun.castShadow = true;
+    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.camera.near = 10;
+    this.sun.shadow.camera.far = 240;
+    const sc = this.sun.shadow.camera;
+    sc.left = -55; sc.right = 55; sc.top = 55; sc.bottom = -55;
+    this.sun.shadow.bias = -0.0006;
+    this.applyShadows();
 
     /* lampe frontale (suit la caméra) */
     this.lamp = new THREE.SpotLight(0xfff2d8, 0, 50, 0.8, 0.7, 1.5);
@@ -57,6 +67,20 @@ export class SceneMgr {
   applyRenderScale(): void {
     const s = settings.renderScale > 0 ? settings.renderScale : Math.min(devicePixelRatio, 2);
     this.renderer.setPixelRatio(s);
+  }
+
+  /** Ombres dynamiques (option, coûteuse). */
+  applyShadows(): void {
+    if (this.renderer.shadowMap.enabled !== settings.shadows) {
+      this.renderer.shadowMap.enabled = settings.shadows;
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      this.renderer.shadowMap.needsUpdate = true;
+      /* force la recompilation des matériaux éclairés */
+      this.scene.traverse(o => {
+        const m = (o as THREE.Mesh).material as THREE.Material | undefined;
+        if (m) m.needsUpdate = true;
+      });
+    }
   }
 
   /** Ambiance selon la lumière du jour, la profondeur (m) et la tempête. */
@@ -87,22 +111,28 @@ export class SceneMgr {
     this.hemi.intensity += 0.1 * under;   // léger plancher de lisibilité en galerie
   }
 
-  /** Positionne la lampe frontale sur la caméra. */
+  /** Positionne la lampe frontale sur la caméra (+ le soleil d'ombre qui suit). */
   updateLamp(): void {
     const dir = new THREE.Vector3();
     this.camera.getWorldDirection(dir);
     this.lamp.position.copy(this.camera.position);
     this.lamp.target.position.copy(this.camera.position).addScaledVector(dir, 12);
     this.lampGlow.position.copy(this.camera.position).addScaledVector(dir, 2.6);
+    if (settings.shadows) {
+      const sd = this.sky.uniforms.uSunDir.value;
+      this.sun.target.position.set(this.camera.position.x, 0, this.camera.position.z);
+      this.sun.position.copy(this.sun.target.position).addScaledVector(sd, 120);
+    }
   }
 
   render(dt: number): void {
-    if (this.shake > 0.01) {
-      this.camera.position.x += (Math.random() - 0.5) * this.shake * 0.05;
-      this.camera.position.y += (Math.random() - 0.5) * this.shake * 0.05;
-      this.camera.position.z += (Math.random() - 0.5) * this.shake * 0.05;
-      this.shake *= Math.pow(0.001, dt);
+    const sh = this.shake * (settings.shakeScale ?? 1);   // accessibilité
+    if (sh > 0.01) {
+      this.camera.position.x += (Math.random() - 0.5) * sh * 0.05;
+      this.camera.position.y += (Math.random() - 0.5) * sh * 0.05;
+      this.camera.position.z += (Math.random() - 0.5) * sh * 0.05;
     }
+    if (this.shake > 0.01) this.shake *= Math.pow(0.001, dt);
     this.renderer.render(this.scene, this.camera);
   }
 }

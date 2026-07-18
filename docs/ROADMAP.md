@@ -30,10 +30,13 @@ autoritative persistante, FR/EN, Electron + scaffold Steamworks, CI, tests.
 - [x] Animations de la foreuse : foret-vortex, flammes, inclinaison, hover
 - [x] SFX localisés : pan stéréo par direction + variations de fréquence
 - [x] Paramètres graphiques : résolution interne, densité de particules
-- [ ] Ombres dynamiques (option, défaut off)
-- [ ] Tutoriel contextuel renforcé (fantômes d'aide à la 1ʳᵉ construction)
-- [ ] Support manette (Steam Input) + Steam Deck verified checklist
-- [ ] Photosensibilité/accessibilité (réduction du shake, FOV étendu)
+- [x] Ombres dynamiques (option, défaut off, suivent le joueur)
+- [x] Tutoriel contextuel : astuces une-fois (forage, placement, gestion, manette)
+- [x] Support manette (Gamepad API / Steam Input) + checklist Steam Deck (docs/STEAM.md §7)
+- [x] Accessibilité : secousses d'écran réglables (normales/réduites/off), FOV 60-110
+
+**v0.3 complète** — reste avant la fiche Steam : actions côté compte Valve
+(AppID réel, fiche, captures/trailer, passe de test sur Steam Deck réel).
 
 ## v0.4 — Steam release candidate
 

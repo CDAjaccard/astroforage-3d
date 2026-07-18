@@ -248,6 +248,12 @@ export class Menus {
         <option value="1" ${settings.fxDensity >= 1 ? "selected" : ""}>${t("fxFull")}</option>
         <option value="0.5" ${settings.fxDensity < 1 ? "selected" : ""}>${t("fxLite")}</option>
       </select></label>
+      <label>${t("shadows")}<input id="o-sh" type="checkbox" ${settings.shadows ? "checked" : ""}></label>
+      <label>${t("shake")}<select id="o-shake">
+        <option value="1" ${settings.shakeScale >= 1 ? "selected" : ""}>${t("shakeFull")}</option>
+        <option value="0.5" ${settings.shakeScale === 0.5 ? "selected" : ""}>${t("shakeHalf")}</option>
+        <option value="0" ${settings.shakeScale === 0 ? "selected" : ""}>${t("shakeOff")}</option>
+      </select></label>
       <label>${t("fullscreen")}<input id="o-fs" type="checkbox" ${document.fullscreenElement ? "checked" : ""}></label>
       <div class="sect">${t("suitCol")}</div><div class="swatches">${cosBtns("suit")}</div>
       <div class="sect">${t("visorCol")}</div><div class="swatches">${cosBtns("visor")}</div>
@@ -267,6 +273,8 @@ export class Menus {
     bind("o-dist", e => settings.renderDist = Number(e.value));
     bind("o-rs", e => settings.renderScale = Number(e.value));
     bind("o-fx", e => settings.fxDensity = Number(e.value));
+    bind("o-sh", e => settings.shadows = e.checked);
+    bind("o-shake", e => settings.shakeScale = Number(e.value));
     bind("o-fs", e => {
       if (e.checked) document.documentElement.requestFullscreen?.();
       else document.exitFullscreen?.();

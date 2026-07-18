@@ -47,6 +47,7 @@ npm --workspace=@astroforage/desktop run start
 | B / I / H | construire / stockage / aide |
 | R / T | déployer un robot · rappel monte-charge |
 | Échap / P | pause |
+| 🎮 Manette | sticks bouger/viser · A saut/vol · RT forer · LB surrégime · X interagir · Y caméra · Start pause |
 
 ## La boucle de jeu
 

@@ -218,6 +218,14 @@ export class Game {
     this.placing = null;
   }
 
+  /** Active la projection d'ombres sur tout un sous-arbre (option graphique). */
+  private castShadows(o: THREE.Object3D): THREE.Object3D {
+    o.traverse(c => {
+      if ((c as THREE.Mesh).isMesh) { c.castShadow = true; }
+    });
+    return o;
+  }
+
   private setupWorld(): void {
     const S = this.sim!.S;
     if (!this.world) this.world = new VoxelWorld(this.scene.scene, S);
@@ -225,13 +233,14 @@ export class Game {
     this.world.setState(S);
     this.scanSpecials();
 
-    this.drillMesh = this.props.makeDrill();
+    this.drillMesh = this.castShadows(this.props.makeDrill());
     this.buildDrillFx();
     this.scene.scene.add(this.drillMesh);
-    this.rocketMesh = this.props.makeRocket();
+    this.rocketMesh = this.castShadows(this.props.makeRocket());
     this.rocketMesh.position.set((ROCK_POS.x + 0.5) * VOX, 0, (ROCK_POS.z + 0.5) * VOX);
     this.scene.scene.add(this.rocketMesh);
     this.myRig = this.props.makeAstro(settings.cosmetic);
+    this.castShadows(this.myRig.group);
     this.scene.scene.add(this.myRig.group);
     this.syncNests();
     this.scatterRocks();
@@ -272,6 +281,8 @@ export class Game {
     }
     inst.count = placed;
     inst.instanceMatrix.needsUpdate = true;
+    inst.castShadow = true;
+    inst.receiveShadow = true;
     this.scene.scene.add(inst);
     this.rocksMesh = inst;
   }
@@ -413,6 +424,7 @@ export class Game {
 
   applySettings(): void {
     this.scene.applyRenderScale();
+    this.scene.applyShadows();
     /* recrée le rig local avec les nouvelles couleurs */
     if (this.myRig) {
       this.scene.scene.remove(this.myRig.group);
@@ -463,6 +475,10 @@ export class Game {
       case "robot": this.deployRobot(); break;
       case "beam": this.beamUp(); break;
       case "mute": au.toggle(); break;
+      case "padConnected":
+        this.hud.toast(getLang() === "en" ? "🎮 Controller detected" : "🎮 Manette détectée", "info");
+        this.hint("pad", "hintPad");
+        break;
       case "fullscreen":
         if (document.fullscreenElement) void document.exitFullscreen();
         else void document.documentElement.requestFullscreen();
@@ -704,6 +720,7 @@ export class Game {
       a.inDrill = true;
       au.blip(520, 0.08, 0.1);
       setTimeout(() => au.thud(), 200);
+      this.hint("dig", "hintDig");
       return;
     }
     /* fusée : on entre dans la base (vestiaire / établi / console) */
@@ -788,6 +805,7 @@ export class Game {
     this.scene.scene.add(this.ghost);
     this.input.lock();
     this.hud.toast("📍 " + pick(BUILDINGS[key].nom, BUILDINGS[key].nomEn) + " — " + t("place"), "info");
+    this.hint("build", "hintBuild");
   }
   cancelPlacing(): void {
     if (this.ghost) this.scene.scene.remove(this.ghost);
@@ -997,6 +1015,7 @@ export class Game {
 
   update(dt: number): void {
     if (this.mode === "boot") return;
+    this.input.pollGamepad(dt);
     const sim = this.sim;
 
     if (this.mode === "menu" || !sim) {
@@ -1340,6 +1359,14 @@ export class Game {
     }
   }
 
+  /** Astuce contextuelle affichée une seule fois (tutoriel léger). */
+  private hint(id: string, key: Parameters<typeof t>[0]): void {
+    const k = "af3d_hint_" + id;
+    if (localStorage.getItem(k)) return;
+    localStorage.setItem(k, "1");
+    this.hud.toast(t(key), "info");
+  }
+
   private rescue(reason: string): void {
     const a = this.astro, d = this.drill;
     const st = { batt: upVal(this.sim!.myUp, "batterie"), coque: upVal(this.sim!.myUp, "coque") };
@@ -1387,6 +1414,7 @@ export class Game {
       if (!ok) { this.hud.toast(t("cantPlace"), "warn"); au.err(); return; }
       this.sim.intent({ i: "build", key: this.placing, x: aim.cx, z: aim.cz });
       au.build();
+      this.hint("manage", "hintManage");
       /* enchaîne si répétable et payable */
       const def = BUILDINGS[this.placing];
       if (!def.repeat) this.cancelPlacing();
@@ -1522,6 +1550,7 @@ export class Game {
       let vis = this.buildingVisuals.get(k);
       if (!vis) {
         vis = new BuildingVisual(b.key, this.buildingTemplates[b.key] ?? null, this.fx);
+        this.castShadows(vis.group);
         vis.group.position.set(b.x * VOX, 0, b.z * VOX);
         this.scene.scene.add(vis.group);
         this.buildingVisuals.set(k, vis);

@@ -13,6 +13,9 @@ let engOsc: OscillatorNode | null = null;
 let engOsc2: OscillatorNode | null = null;
 let engFilter: BiquadFilterNode | null = null;
 let engNoiseGain: GainNode | null = null;
+let thrGain: GainNode | null = null;
+let thrFilter: BiquadFilterNode | null = null;
+let thrHissGain: GainNode | null = null;
 let facHumGain: GainNode | null = null;
 let facSteamGain: GainNode | null = null;
 let facReacGain: GainNode | null = null;
@@ -145,6 +148,33 @@ export function ensure(): boolean {
     enF.connect(engNoiseGain);
     engNoiseGain.connect(master);
     enSrc.start();
+    /* ---- réacteurs de la foreuse (poussée Espace) : grondement fusée ---- */
+    const thSrc = ctx.createBufferSource();
+    thSrc.buffer = noiseBuffer(1.6);
+    thSrc.loop = true;
+    thrFilter = ctx.createBiquadFilter();
+    thrFilter.type = "lowpass";
+    thrFilter.frequency.value = 240;
+    thrFilter.Q.value = 0.8;
+    thrGain = ctx.createGain();
+    thrGain.gain.value = 0;
+    thSrc.connect(thrFilter);
+    thrFilter.connect(thrGain);
+    thrGain.connect(master);
+    thSrc.start();
+    /* sifflement de tuyère (aigu, discret) */
+    const thH = ctx.createBufferSource();
+    thH.buffer = noiseBuffer(1.1);
+    thH.loop = true;
+    const thHF = ctx.createBiquadFilter();
+    thHF.type = "highpass";
+    thHF.frequency.value = 1500;
+    thrHissGain = ctx.createGain();
+    thrHissGain.gain.value = 0;
+    thH.connect(thHF);
+    thHF.connect(thrHissGain);
+    thrHissGain.connect(master);
+    thH.start();
     /* ---- bruits d'usine (bâtiments actifs, dosés par proximité) ---- */
     /* hum électrique grave (générateur / fonderie / atelier / baie) */
     const humOsc = ctx.createOscillator();
@@ -290,6 +320,14 @@ export const au = {
   setJet(on: boolean): void {
     if (!ctx || !jetGain) return;
     jetGain.gain.setTargetAtTime(on ? 0.06 : 0, ctx.currentTime, 0.07);
+  },
+  /** Réacteurs de la foreuse : grondement fusée pendant la poussée (Espace). */
+  thruster(on: boolean, boost: boolean): void {
+    if (!ctx || !thrGain || !thrFilter || !thrHissGain) return;
+    const t = ctx.currentTime;
+    thrFilter.frequency.setTargetAtTime(on ? (boost ? 620 : 420) : 220, t, 0.09);
+    thrGain.gain.setTargetAtTime(on ? (boost ? 0.17 : 0.12) : 0, t, on ? 0.05 : 0.16);
+    thrHissGain.gain.setTargetAtTime(on ? (boost ? 0.028 : 0.018) : 0, t, on ? 0.05 : 0.12);
   },
   /** Moteur de la foreuse : au ralenti dès qu'on est à bord, régime 0..1. */
   engine(on: boolean, rpm: number, boost: boolean): void {

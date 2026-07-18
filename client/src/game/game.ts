@@ -111,6 +111,11 @@ export class Game {
   private beaconBulb: THREE.Mesh | null = null;
   private beaconHalo: THREE.Sprite | null = null;
   private moteT = 0;
+  /* foret visible en vue cockpit (viewmodel devant la caméra) */
+  private fpBit: THREE.Group | null = null;
+  private fpBitInner!: THREE.Group;
+  private fpBitSpin!: THREE.Object3D;
+  private fpBitVel = 0;
   private slotId: string | null = null;
   private uiLayer: HTMLDivElement;
   private introT = 0;
@@ -242,6 +247,7 @@ export class Game {
     this.drillMesh = this.castShadows(this.props.makeDrill());
     this.buildDrillFx();
     this.scene.scene.add(this.drillMesh);
+    if (!this.fpBit) this.buildFpBit();
     this.rocketMesh = this.castShadows(this.props.makeRocket());
     this.rocketMesh.position.set((ROCK_POS.x + 0.5) * VOX, 0, (ROCK_POS.z + 0.5) * VOX);
     /* balise de détresse au sommet (suit la fusée au décollage) */
@@ -570,6 +576,75 @@ export class Game {
     }
   }
 
+  /** Foret vue cockpit : bras + cône strié dessinés PAR-DESSUS le monde
+   * (depthTest désactivé, comme une arme FPS), positionné sur la caméra. */
+  private buildFpBit(): void {
+    const cv = document.createElement("canvas");
+    cv.width = 64; cv.height = 32;
+    const cx = cv.getContext("2d")!;
+    cx.fillStyle = "#5a6474";
+    cx.fillRect(0, 0, 64, 32);
+    cx.fillStyle = "#aeb9cb";
+    for (let i = 0; i < 8; i++) cx.fillRect(i * 8, 0, 3, 32);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+
+    const noDepth = <T extends THREE.Material>(m: T): T => {
+      m.depthTest = false;
+      m.depthWrite = false;
+      return m;
+    };
+    this.fpBit = new THREE.Group();
+    this.fpBitInner = new THREE.Group();
+    this.fpBitInner.position.set(0.55, -0.42, 0);
+    /* incliné vers le centre : on voit le flanc strié du foret, pas sa base */
+    this.fpBitInner.rotation.set(-0.18, 0.5, 0);
+    this.fpBit.add(this.fpBitInner);
+
+    const arm = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.065, 0.95, 10),
+      noDepth(new THREE.MeshStandardMaterial({ color: 0x4a5262, metalness: 0.7, roughness: 0.45, emissive: 0x161b24 }))
+    );
+    arm.rotation.x = Math.PI / 2;
+    arm.position.z = -0.6;
+    this.fpBitInner.add(arm);
+    const collar = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.135, 0.15, 0.3, 12),
+      noDepth(new THREE.MeshStandardMaterial({ color: 0x6a7488, metalness: 0.75, roughness: 0.4, emissive: 0x1a212c }))
+    );
+    collar.rotation.x = Math.PI / 2;
+    collar.position.z = -1.0;
+    this.fpBitInner.add(collar);
+    const led = new THREE.Mesh(
+      new THREE.SphereGeometry(0.028, 8, 6),
+      noDepth(new THREE.MeshStandardMaterial({ color: 0xff8c42, emissive: 0xff6a20, emissiveIntensity: 2 }))
+    );
+    led.position.set(0.1, 0.1, -0.88);
+    this.fpBitInner.add(led);
+
+    const orient = new THREE.Group();
+    orient.rotation.x = -Math.PI / 2;          // axe +Y local -> -Z (l'avant)
+    orient.position.z = -1.3;
+    const bitMat = noDepth(new THREE.MeshStandardMaterial({
+      map: tex, metalness: 0.8, roughness: 0.35,
+      emissive: 0x3a424e, emissiveMap: tex, emissiveIntensity: 0.55
+    }));
+    /* le groupe qui tourne : tige striée + cône long et fin */
+    this.fpBitSpin = new THREE.Group();
+    const shank = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.55, 12), bitMat);
+    shank.position.y = 0.05;
+    this.fpBitSpin.add(shank);
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.85, 12, 1), bitMat);
+    cone.position.y = 0.75;
+    this.fpBitSpin.add(cone);
+    orient.add(this.fpBitSpin);
+    this.fpBitInner.add(orient);
+
+    this.fpBit.traverse(o => { o.renderOrder = 40; o.frustumCulled = false; });
+    this.fpBit.visible = false;
+    this.scene.scene.add(this.fpBit);
+  }
+
   /* ---- intérieur de la fusée ---- */
   enterRocket(): void {
     if (!this.sim || this.astro.inDrill) return;
@@ -706,6 +781,7 @@ export class Game {
       this.thrusting = false;
       au.setDig(false);
       au.engine(false, 0, false);
+      au.thruster(false, false);
       const angles = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
       let placed = false;
       for (const ang of angles) {
@@ -1031,7 +1107,10 @@ export class Game {
     this.input.pollGamepad(dt);
     const sim = this.sim;
     /* coupe le moteur hors pilotage (menu, intérieur, décollage, à pied) */
-    if (this.mode !== "play" || !this.astro.inDrill) au.engine(false, 0, false);
+    if (this.mode !== "play" || !this.astro.inDrill) {
+      au.engine(false, 0, false);
+      au.thruster(false, false);
+    }
 
     if (this.mode === "menu" || !sim) {
       this.scene.updateEnv(0.85, 0, 0, performance.now() / 1000, 0.3);
@@ -1295,6 +1374,7 @@ export class Game {
     /* moteur : ralenti à bord, monte en régime avec vitesse/poussée/forage */
     const rpm = Math.min(1, hv / 16 + Math.abs(d.vy) / 18 + (thrust ? 0.35 : 0) + (digging ? 0.3 : 0));
     au.engine(true, rpm, d.boosting);
+    au.thruster(thrust, d.boosting);   // grondement fusée sur la poussée
     if (d.boosting && digging) this.scene.shake = Math.max(this.scene.shake, 0.9);
 
     /* énergie */
@@ -1442,6 +1522,7 @@ export class Game {
   /* ---- caméra ---- */
   private updateCamera(dt: number): void {
     const cam = this.scene.camera;
+    if (this.fpBit) this.fpBit.visible = false;   // ré-affiché en FPS foreuse
     if (this.mode === "interior") {
       const p = this.interior.camPos();
       const yaw = this.input.yaw, pitch = this.input.pitch;
@@ -1477,6 +1558,23 @@ export class Game {
       if (this.astro.inDrill) {
         /* en FPS foreuse : le mesh est sous la caméra, léger recul visuel */
         this.drillMesh.visible = false;
+        /* foret viewmodel : collé à la caméra, tourne à l'appui (inertie) */
+        if (this.fpBit) {
+          const d = this.drill;
+          this.fpBit.visible = true;
+          this.fpBit.position.copy(cam.position);
+          this.fpBit.quaternion.copy(cam.quaternion);
+          const want = d.digging ? (d.boosting ? 46 : 26) : 0;
+          this.fpBitVel += (want - this.fpBitVel) * Math.min(1, dt * (d.digging ? 9 : 1.5));
+          this.fpBitSpin.rotation.y += dt * this.fpBitVel;
+          const t = performance.now() / 1000;
+          const k = d.digging ? 0.018 : 0;
+          this.fpBitInner.position.set(
+            0.46 + (Math.random() - 0.5) * k,
+            -0.38 + Math.sin(t * 1.7) * 0.008 + (Math.random() - 0.5) * k,
+            d.digging ? Math.sin(t * 34) * 0.03 : 0
+          );
+        }
       }
     } else {
       const dist = this.astro.inDrill ? 7.5 : 5.2;

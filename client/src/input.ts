@@ -13,6 +13,7 @@ export class Input {
   pitch = 0;
   jumpBuf = 0;
   locked = false;
+  private lockT = 0;   // instant de la dernière capture du pointeur
   /** callbacks d'actions ponctuelles (assignés par Game) */
   onAction: (action: string) => void = () => { /* assigné par Game */ };
   enabled = false;
@@ -85,16 +86,24 @@ export class Input {
     });
     window.addEventListener("mousemove", (e) => {
       if (!this.locked || !this.enabled) return;
+      let mx = e.movementX, my = e.movementY;
+      /* Chrome/Windows envoie parfois un movementX/Y géant juste après la
+       * (re)capture du pointeur, ou un pic isolé en cours de jeu — la caméra
+       * claquait alors en butée haut/bas. On ignore ces deltas aberrants. */
+      if (performance.now() - this.lockT < 250 && (Math.abs(mx) > 60 || Math.abs(my) > 60)) return;
+      if (Math.abs(mx) > 260 || Math.abs(my) > 260) return;
+      mx = Math.max(-180, Math.min(180, mx));
+      my = Math.max(-180, Math.min(180, my));
       const s = 0.0023 * settings.sens;
-      this.yaw -= e.movementX * s;
-      this.pitch -= e.movementY * s * (settings.invertY ? -1 : 1);
+      this.yaw -= mx * s;
+      this.pitch -= my * s * (settings.invertY ? -1 : 1);
       const lim = Math.PI / 2 - 0.02;
       this.pitch = Math.max(-lim, Math.min(lim, this.pitch));
     });
     document.addEventListener("pointerlockchange", () => {
       this.locked = document.pointerLockElement === this.el;
       if (!this.locked) { this.clear(); this.onAction("unlocked"); }
-      else this.onAction("lockedIn");
+      else { this.lockT = performance.now(); this.onAction("lockedIn"); }
     });
   }
 
